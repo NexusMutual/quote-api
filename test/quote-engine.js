@@ -26,7 +26,7 @@ describe('quote-engine', function () {
 
       it('properly gets staking date', async function () {
         const expected = 1558784772000;
-        assert.deepStrictEqual(stake.stackedAt.getTime(), expected);
+        assert.deepStrictEqual(stake.stakedAt.getTime(), expected);
       });
     });
   });
