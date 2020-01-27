@@ -1,9 +1,14 @@
-const utils = require('./utils');
 const BN = require('bn.js');
+const utils = require('./utils');
+const Stake = require('./models/stake');
 
 const ADD_STAKE_SIGNATURE = '6374299e';
 
 class QuoteEngine {
+
+  constructor (etherscan) {
+    this.etherscan = etherscan;
+  }
 
   static parseTransactions (transactions) {
     return transactions
@@ -30,6 +35,26 @@ class QuoteEngine {
       .reduce((sum, stake) => sum.add(new BN(stake.amount)), new BN(0))
       .toString();
   }
+
+  async getLastBlock () {
+    throw new Error('Untested');
+    const lastStake = await Stake.findOne().sort({ blockNumber: -1 }).exec();
+    return lastStake ? lastStake.blockNumber : 0;
+  }
+
+  async fetchNewStakes () {
+    throw new Error('Untested');
+    const lastBlock = await this.getLastBlock();
+    const startBlock = lastBlock + 1;
+
+    console.log(`Fetching transactions starting with ${startBlock}`);
+    const transactions = await this.etherscan.getTransactions('', { startBlock });
+    const stakes = QuoteEngine.parseTransactions(transactions);
+
+    console.log(`Found ${stakes.length} new stakes`);
+    Stake.insertMany(stakes);
+  }
+
 }
 
 module.exports = QuoteEngine;
