@@ -5,7 +5,7 @@ const ADD_STAKE_SIGNATURE = '6374299e';
 
 class QuoteEngine {
 
-  static getStakes (transactions) {
+  static parseTransactions (transactions) {
     return transactions
       .filter(transaction => transaction.isError === '0') // filter out failed transactions
       .map(transaction => {
@@ -24,6 +24,12 @@ class QuoteEngine {
       });
   }
 
+  static getTotalStakedAmount (stakes, contract) {
+    return stakes
+      .filter(stake => stake.contractAddress === contract)
+      .reduce((sum, stake) => sum.add(new BN(stake.amount)), new BN(0))
+      .toString();
+  }
 }
 
 module.exports = QuoteEngine;
