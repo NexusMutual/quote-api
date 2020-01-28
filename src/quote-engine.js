@@ -55,6 +55,38 @@ class QuoteEngine {
     Stake.insertMany(stakes);
   }
 
+  async isOriginAllowed (origin, apiKey) {
+
+    if (/\.nexusmutual\.io$/.test(origin)) {
+      return true;
+    }
+
+    if (!apiKey) { // null, undefined, etc
+      return false;
+    }
+
+    apiKey = await ApiKey.findOne({ origin, apiKey });
+
+    return apiKey !== null;
+  }
+
+  async getQuote (contractAddress, coverAmount, currency, period) {
+    return {
+      coverCurr: currency,
+      coverPeriod: period,
+      smartCA: contractAddress,
+      coverAmount,
+      reason: 'ok',
+      expireTime: 1580222069,
+      generationTime: 1580218469674,
+      coverCurrPrice: 1542322610000000,
+      PriceNxm: '103511584563758380',
+      v: 28,
+      r: '0x40298ef06ce874b75d051d7821aad6e9889a5f49133e6cf0e178ac7af6696f53',
+      s: '0x50cccb76d5efc43a305cd953b094a59c0833191e08ced59d3dc058068f32bf46',
+    };
+
+  }
 }
 
 module.exports = QuoteEngine;
