@@ -1,7 +1,7 @@
 const BN = require('bn.js');
 const utils = require('./utils');
 const Stake = require('./models/stake');
-const ApiKey = require('./models/stake');
+const ApiKey = require('./models/api-key');
 
 const ADD_STAKE_SIGNATURE = '6374299e'; // addStake(address,uint256)
 
