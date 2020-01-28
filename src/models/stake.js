@@ -5,7 +5,7 @@ const stakeSchema = new mongoose.Schema({
   stakerAddress: String,
   contractAddress: String,
   amount: String,
-  stackedAt: Date,
+  stakedAt: Date,
 });
 
 module.exports = mongoose.model('Stake', stakeSchema);
