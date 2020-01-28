@@ -47,6 +47,11 @@ class QuoteEngine {
     return lastStake ? lastStake.blockNumber : 0;
   }
 
+  async getTotalStakedAmount (contract) {
+    const stakes = await Stake.find({ contractAddress: contract }).exec();
+    return QuoteEngine.calculateTotalStakedAmount(stakes, contract);
+  }
+
   async fetchNewStakes () {
     throw new Error('Untested');
     const lastBlock = await this.getLastBlock();
