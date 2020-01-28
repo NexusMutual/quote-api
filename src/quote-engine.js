@@ -42,6 +42,51 @@ class QuoteEngine {
       .toString();
   }
 
+  /**
+   * @param {Stake[]} unsortedStakes
+   * @param {number} nxmThreshold
+   */
+  static getThresholdMetDate (unsortedStakes, nxmThreshold) {
+
+    // sort chronologically
+    const stakes = unsortedStakes.sort((a, b) => a.stakedAt - b.stakedAt);
+    const stakeExpirationInterval = new BN(250 * 24 * 3600 * 1000); // 250 days
+    const precision = new BN(10).pow(new BN(18));
+    const threshold = precision.mul(new BN(nxmThreshold));
+
+    for (const referenceStake of stakes) {
+
+      const current = new BN(0);
+
+      for (const stake of stakes) {
+
+        const age = new BN(referenceStake.stakedAt - stake.stakedAt);
+
+        if (age.gte(stakeExpirationInterval)) {
+          continue;
+        }
+
+        const originalStakeAmount = new BN(stake.amount);
+        const timeLeft = stakeExpirationInterval.sub(age);
+        const currentStakeAmount = originalStakeAmount.mul(timeLeft).div(stakeExpirationInterval);
+
+        // in-place addition
+        current.iadd(currentStakeAmount);
+
+        if (current.gte(threshold)) {
+          return stake.stakedAt;
+        }
+
+        if (stake._id.equals(referenceStake._id)) {
+          // got to present stake
+          break;
+        }
+      }
+    }
+
+    return null;
+  }
+
   async getLastBlock () {
     const lastStake = await Stake.findOne().sort({ blockNumber: -1 }).exec();
     return lastStake ? lastStake.blockNumber : 0;
