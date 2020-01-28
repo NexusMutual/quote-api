@@ -14,14 +14,14 @@ describe('getStakes()', function () {
     };
 
     for (const contract of Object.keys(expected)) {
-      const actual = QuoteEngine.getTotalStakedAmount(stakes, contract);
+      const actual = QuoteEngine.calculateTotalStakedAmount(stakes, contract);
       assert.strictEqual(actual, expected[contract]);
     }
   });
 
   it('returns 0 if the contracts does not exist', async function () {
     const stakes = stakesFixture.map(stake => ({ ...stake, stakedAt: new Date(stake.stakedAt * 1000) }));
-    const actual = QuoteEngine.getTotalStakedAmount(stakes, '0xdeadbeef');
+    const actual = QuoteEngine.calculateTotalStakedAmount(stakes, '0xdeadbeef');
     const expected = '0';
     assert.strictEqual(actual, expected);
   });
