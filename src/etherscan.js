@@ -7,7 +7,7 @@ const ETHERSCAN_URL = {
   ropsten: 'https://api-ropsten.etherscan.io/api',
 };
 
-module.exports = class {
+class Etherscan {
 
   constructor (apiKey = null, chain = 'mainnet') {
     this.apiURL = ETHERSCAN_URL[chain];
@@ -33,4 +33,6 @@ module.exports = class {
     const { result } = await this.request('account', 'txlist', address, { sort: 'asc', ...opts });
     return result;
   }
-};
+}
+
+module.exports = Etherscan;
