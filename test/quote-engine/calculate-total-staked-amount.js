@@ -1,7 +1,7 @@
 const assert = require('assert');
 
 const QuoteEngine = require('../../src/quote-engine');
-const stakesFixture = require('../fixtures/stakes');
+const stakesFixture = require('../fixtures/stakes/total-calculation');
 
 describe('getStakes()', function () {
 
