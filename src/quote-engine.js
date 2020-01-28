@@ -94,7 +94,7 @@ class QuoteEngine {
 
   async getTotalStakedAmount (contract) {
     const stakes = await Stake.find({ contractAddress: contract }).exec();
-    return QuoteEngine.calculateTotalStakedAmount(stakes, contract);
+    return this.constructor.calculateTotalStakedAmount(stakes, contract);
   }
 
   async fetchNewStakes () {
@@ -104,7 +104,7 @@ class QuoteEngine {
     console.log(`Fetching transactions starting with ${startBlock}`);
     const watchedContract = this.versionData.address('TF'); // TokenFunctions
     const transactions = await this.etherscan.getTransactions(watchedContract, { startBlock });
-    const stakes = QuoteEngine.parseTransactions(transactions);
+    const stakes = this.constructor.parseTransactions(transactions);
 
     console.log(`Found ${stakes.length} new stakes`);
     Stake.insertMany(stakes);
