@@ -25,6 +25,7 @@
     "nodemon": "^2.0.2"
   },
   "scripts": {
+    "start": "node src/index.js",
     "test": "mocha"
   },
   "repository": {
