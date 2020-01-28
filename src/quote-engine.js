@@ -6,8 +6,13 @@ const ADD_STAKE_SIGNATURE = '6374299e';
 
 class QuoteEngine {
 
-  constructor (etherscan) {
+  /**
+   * @param {Etherscan} etherscan
+   * @param {VersionData} versionData
+   */
+  constructor (etherscan, versionData) {
     this.etherscan = etherscan;
+    this.versionData = versionData;
   }
 
   static parseTransactions (transactions) {
