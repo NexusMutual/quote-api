@@ -7,11 +7,13 @@ const ETHERSCAN_URL = {
   ropsten: 'https://api-ropsten.etherscan.io/api',
 };
 
+const { ETHERSCAN_API_KEY } = process.env;
+
 class Etherscan {
 
   constructor (apiKey = null, chain = 'mainnet') {
     this.apiURL = ETHERSCAN_URL[chain];
-    this.apiKey = apiKey;
+    this.apiKey = apiKey || ETHERSCAN_API_KEY;
   }
 
   async request (module, action, address, options) {
