@@ -43,7 +43,6 @@ class QuoteEngine {
   }
 
   async getLastBlock () {
-    throw new Error('Untested');
     const lastStake = await Stake.findOne().sort({ blockNumber: -1 }).exec();
     return lastStake ? lastStake.blockNumber : 0;
   }
@@ -54,12 +53,12 @@ class QuoteEngine {
   }
 
   async fetchNewStakes () {
-    throw new Error('Untested');
     const lastBlock = await this.getLastBlock();
     const startBlock = lastBlock + 1;
 
     console.log(`Fetching transactions starting with ${startBlock}`);
-    const transactions = await this.etherscan.getTransactions('', { startBlock });
+    const watchedContract = this.versionData.address('TF'); // TokenFunctions
+    const transactions = await this.etherscan.getTransactions(watchedContract, { startBlock });
     const stakes = QuoteEngine.parseTransactions(transactions);
 
     console.log(`Found ${stakes.length} new stakes`);
