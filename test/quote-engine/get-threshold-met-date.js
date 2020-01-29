@@ -15,7 +15,7 @@ function prepareStakes (stakeData) {
   });
 }
 
-describe.only('getThresholdMetDate()', function () {
+describe('getThresholdMetDate()', function () {
 
   it('returns null when there are no stakes', function () {
     const expected = null;
