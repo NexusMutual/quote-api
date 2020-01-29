@@ -91,6 +91,56 @@ class QuoteEngine {
     return null;
   }
 
+  /**
+   * @param {Date} thresholdMetDate
+   * @param {Date} now
+   * @return {number}
+   */
+  static calculateDaysSinceThresholdMet (thresholdMetDate, now) {
+    const msPerDay = Big(1000 * 3600 * 24); // milliseconds in a day
+    const daysSinceMet = Big(now - thresholdMetDate).div(msPerDay);
+    return parseInt(daysSinceMet.toFixed(0), 10); // rounding down
+  }
+
+  /**
+   * Unstaked risk cost is a number between 0 and 1
+   * @param {number} daysSinceThresholdMet
+   * @param {number} riskCostExponent
+   * @param {string} minUnstakedRiskCost
+   */
+  static calculateUnstakedRiskCost (daysSinceThresholdMet, riskCostExponent, minUnstakedRiskCost) {
+    const daysSinceMet = Math.min(MAX_DAYS_SINCE_THRESHOLD_MET, daysSinceThresholdMet);
+    const ratio = Big(MAX_DAYS_SINCE_THRESHOLD_MET)
+      .minus(daysSinceMet)
+      .div(MAX_DAYS_SINCE_THRESHOLD_MET);
+
+    const calculatedRiskCost = ratio.pow(riskCostExponent);
+    const minimumRiskCost = Big(minUnstakedRiskCost);
+
+    const risk = calculatedRiskCost.gt(minimumRiskCost)
+      ? calculatedRiskCost
+      : minimumRiskCost;
+
+    return risk.toFixed();
+  }
+
+  // unstakedRiskCost      = Max[ ((250 - Days Since First Staked Threshold has been met) / 250)^(Risk Cost Exponent) , Min Unstaked Risk Cost ]
+  // stakedRiskCost        = Max[ Min[Unstaked Risk Cost, Staked High Risk Cost] x (1 - Staked NXM x NXM PriceETH / Low Risk Cost LimitETH), Staked Low Risk Cost]
+  // stakedCapacityLimit   = Min[ Staked NXM x NXM PriceETH, Min Cap ETH x Capacity Limit ] x if [ Quote in DAI, NXM PriceDAI, 1 ]
+  // unstakedCapacityLimit = if[ Unstaked Risk Cost > 50%, 0 , Min Cap ETH x Capacity Limit ] x if [ Quote in DAI, NXM PriceDAI, 1 ] - Staked Capacity Limit
+  // stakedCoverAmount     = Min[ Cover Amount, Staked Capacity Limit ]
+  // unStakedCoverAmount   = Min[ Cover Amount - Staked Cover Amount, Unstaked Capacity Limit ]
+  // stakedPrice           = Staked Cover Amount x Staked Risk Cost x (1 + Surplus Margin) x Cover Period in Days / 365.25
+  // unstakedPrice         = Unstaked Cover Amount x Unstaked Risk Cost x (1 + Surplus Margin) x Cover Period in Days / 365.25
+  // totalCover Offered    = Staked Cover Amount + Unstaked Cover Amount
+  // totalPrice            = Staked Price + Unstaked Price
+  // totalPriceInNXM       = Total Price / if[ quote in DAI, NXM PriceDAI , NXM Price ETH ]
+
+  // const thresholdMetDate = this.
+  // const thresholdMetDays = Math.min(now - thresholdMetDate, 250);
+  //
+  // unstakedRiskCost      = Max[ ((250 - daysSinceThresholdMet) / 250) ^ (Risk Cost Exponent) , Min Unstaked Risk Cost ]
+
   async getLastBlock () {
     const lastStake = await Stake.findOne().sort({ blockNumber: -1 }).exec();
     return lastStake ? lastStake.blockNumber : 0;
@@ -144,7 +194,6 @@ class QuoteEngine {
       r: '0x40298ef06ce874b75d051d7821aad6e9889a5f49133e6cf0e178ac7af6696f53',
       s: '0x50cccb76d5efc43a305cd953b094a59c0833191e08ced59d3dc058068f32bf46',
     };
-
   }
 }
 
