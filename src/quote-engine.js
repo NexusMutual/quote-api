@@ -1,9 +1,14 @@
 const BN = require('bn.js');
+const Big = require('big.js');
 const utils = require('./utils');
 const Stake = require('./models/stake');
 const ApiKey = require('./models/api-key');
 
 const ADD_STAKE_SIGNATURE = '6374299e'; // addStake(address,uint256)
+const MIN_STAKED_THRESHOLD = 1000;
+const RISK_COST_EXPONENT = 3;
+const STAKE_EXPIRATION_DAYS = 250;
+const MAX_DAYS_SINCE_THRESHOLD_MET = 250;
 
 class QuoteEngine {
 
@@ -46,32 +51,31 @@ class QuoteEngine {
    * @param {Stake[]} unsortedStakes
    * @param {number} nxmThreshold
    */
-  static getThresholdMetDate (unsortedStakes, nxmThreshold) {
+  static calculateThresholdMetDate (unsortedStakes, nxmThreshold) {
 
     // sort chronologically
     const stakes = unsortedStakes.sort((a, b) => a.stakedAt - b.stakedAt);
-    const stakeExpirationInterval = new BN(250 * 24 * 3600 * 1000); // 250 days
-    const precision = new BN(10).pow(new BN(18));
-    const threshold = precision.mul(new BN(nxmThreshold));
+    const stakeExpirationInterval = Big(STAKE_EXPIRATION_DAYS * 24 * 3600 * 1000);
+    const threshold = Big(nxmThreshold).mul(1e18);
 
     for (const referenceStake of stakes) {
 
-      const current = new BN(0);
+      let current = Big(0);
 
       for (const stake of stakes) {
 
-        const age = new BN(referenceStake.stakedAt - stake.stakedAt);
+        const age = Big(referenceStake.stakedAt - stake.stakedAt);
 
         if (age.gte(stakeExpirationInterval)) {
           continue;
         }
 
-        const originalStakeAmount = new BN(stake.amount);
+        const originalStakeAmount = Big(stake.amount);
         const timeLeft = stakeExpirationInterval.sub(age);
         const currentStakeAmount = originalStakeAmount.mul(timeLeft).div(stakeExpirationInterval);
 
         // in-place addition
-        current.iadd(currentStakeAmount);
+        current = current.add(currentStakeAmount);
 
         if (current.gte(threshold)) {
           return stake.stakedAt;

@@ -15,24 +15,24 @@ function prepareStakes (stakeData) {
   });
 }
 
-describe('getThresholdMetDate()', function () {
+describe('calculateThresholdMetDate()', function () {
 
   it('returns null when there are no stakes', function () {
     const expected = null;
-    const actual = QuoteEngine.getThresholdMetDate([], 100);
+    const actual = QuoteEngine.calculateThresholdMetDate([], 100);
     assert.deepStrictEqual(actual, expected);
   });
 
   it('takes into account stake expiration', function () {
     const stakes = prepareStakes(stakeDataNotMet);
-    const actual = QuoteEngine.getThresholdMetDate(stakes, 1000);
+    const actual = QuoteEngine.calculateThresholdMetDate(stakes, 1000);
     const expected = null;
     assert.strictEqual(actual, expected);
   });
 
   it('returns the date when the threshold was met', function () {
     const stakes = prepareStakes(stakeDataMet);
-    const date = QuoteEngine.getThresholdMetDate(stakes, 1000);
+    const date = QuoteEngine.calculateThresholdMetDate(stakes, 1000);
     assert.notStrictEqual(date, null);
 
     const actual = date.getTime();
