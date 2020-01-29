@@ -1,4 +1,3 @@
-const BN = require('bn.js');
 const Big = require('big.js');
 const utils = require('./utils');
 const Stake = require('./models/stake');
