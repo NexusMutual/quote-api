@@ -33,7 +33,7 @@ class QuoteEngine {
       .map(transaction => {
         const { from: stakerAddress, params } = transaction;
         const contractAddress = '0x' + params[0].slice(24);
-        const amount = new BN(params[1], 16).toString();
+        const amount = Big(parseInt(params[1], 16)).toFixed();
         const stakedAt = new Date(transaction.timeStamp * 1000);
         const blockNumber = parseInt(transaction.blockNumber, 10);
         return { blockNumber, stakerAddress, contractAddress, amount, stakedAt };
