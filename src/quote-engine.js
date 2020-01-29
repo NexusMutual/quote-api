@@ -43,8 +43,8 @@ class QuoteEngine {
   static calculateTotalStakedAmount (stakes, contract) {
     return stakes
       .filter(stake => stake.contractAddress === contract)
-      .reduce((sum, stake) => sum.add(new BN(stake.amount)), new BN(0))
-      .toString();
+      .reduce((sum, stake) => sum.add(stake.amount), Big(0))
+      .toFixed();
   }
 
   /**
