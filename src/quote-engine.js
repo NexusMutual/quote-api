@@ -1,13 +1,16 @@
+const assert = require('assert');
 const Big = require('big.js');
+
 const utils = require('./utils');
 const Stake = require('./models/stake');
 const ApiKey = require('./models/api-key');
 
 const ADD_STAKE_SIGNATURE = '6374299e'; // addStake(address,uint256)
-const MIN_STAKED_THRESHOLD = 1000;
-const RISK_COST_EXPONENT = 3;
-const STAKE_EXPIRATION_DAYS = 250;
-const MAX_DAYS_SINCE_THRESHOLD_MET = 250;
+const STAKE_EXPIRATION_DAYS = '250';
+const MAX_DAYS_SINCE_THRESHOLD_MET = '250';
+const MIN_STAKED_THRESHOLD = '1000';
+const RISK_COST_EXPONENT = '3';
+const LOW_RISK_COST_ETH_LIMIT = '1000';
 
 class QuoteEngine {
 
@@ -54,7 +57,8 @@ class QuoteEngine {
 
     // sort chronologically
     const stakes = unsortedStakes.sort((a, b) => a.stakedAt - b.stakedAt);
-    const stakeExpirationInterval = Big(STAKE_EXPIRATION_DAYS * 24 * 3600 * 1000);
+    const stakeExpirationDays = parseInt(STAKE_EXPIRATION_DAYS, 10);
+    const stakeExpirationInterval = Big(stakeExpirationDays * 24 * 3600 * 1000);
     const threshold = Big(nxmThreshold).mul(1e18);
 
     for (const referenceStake of stakes) {
@@ -102,23 +106,59 @@ class QuoteEngine {
   }
 
   /**
-   * Unstaked risk cost is a number between 0 and 1
-   * @param {number} daysSinceThresholdMet
-   * @param {number} riskCostExponent
-   * @param {string} minUnstakedRiskCost
+   * Max[
+   *   ((250 - Days Since First Staked Threshold has been met) / 250) ^ (RISK_COST_EXPONENT),
+   *   MIN_UNSTAKED_RISK_COST
+   * ]
+   * @param {string} daysSinceThresholdMetString
+   * @param {string} riskExponentString
+   * @param {string} minUnstakedRisk
+   * @return {string} A number between 0 and 1
    */
-  static calculateUnstakedRiskCost (daysSinceThresholdMet, riskCostExponent, minUnstakedRiskCost) {
-    const daysSinceMet = Math.min(MAX_DAYS_SINCE_THRESHOLD_MET, daysSinceThresholdMet);
-    const ratio = Big(MAX_DAYS_SINCE_THRESHOLD_MET)
-      .minus(daysSinceMet)
-      .div(MAX_DAYS_SINCE_THRESHOLD_MET);
+  static calculateUnstakedRisk (daysSinceThresholdMetString, riskExponentString, minUnstakedRisk) {
+    const actualDaysSinceMet = parseInt(daysSinceThresholdMetString, 10);
+    const maxDaysSinceMet = parseInt(MAX_DAYS_SINCE_THRESHOLD_MET, 10);
 
-    const calculatedRiskCost = ratio.pow(riskCostExponent);
-    const minimumRiskCost = Big(minUnstakedRiskCost);
+    const boundedDaysSinceMet = Math.min(maxDaysSinceMet, actualDaysSinceMet);
+    const ratio = Big(maxDaysSinceMet)
+      .minus(boundedDaysSinceMet)
+      .div(maxDaysSinceMet);
 
-    const risk = calculatedRiskCost.gt(minimumRiskCost)
-      ? calculatedRiskCost
-      : minimumRiskCost;
+    const intRiskExponent = parseInt(riskExponentString, 10);
+    const calculatedRisk = ratio.pow(intRiskExponent);
+
+    const risk = utils.max(calculatedRisk, minUnstakedRisk);
+
+    return risk.toFixed();
+  }
+
+  /**
+   * Max[
+   *  Min[Unstaked Risk, MAX_STAKED_RISK] x (1 - Staked NXM x NXM PriceETH / LOW_RISK_LIMIT_ETH),
+   *  MIN_STAKED_RISK
+   * ]
+   * @param {string} stakedNxm Number of staked tokens in nxmWei
+   * @param {string} nxmPriceEth In wei
+   * @param {string} lowRiskEthLimit In wei. Prevents pricing from going to 0 for contracts staked over this limit
+   * @param {string} unstakedRisk
+   * @param {string} minStakedRisk
+   * @param {string} maxStakedRisk
+   * @return {string} A number between 0 and 1
+   */
+  static calculateStakedRisk (
+    stakedNxm, nxmPriceEth, lowRiskEthLimit, unstakedRisk, minStakedRisk, maxStakedRisk,
+  ) {
+
+    assert(Big(lowRiskEthLimit || 0).gt(0));
+    assert(Big(minStakedRisk || 0).gt(0));
+    assert(Big(maxStakedRisk || 0).gt(0));
+
+    const stakedNxmEthValue = Big(stakedNxm).mul(nxmPriceEth);
+    const stakingToLimitRatio = stakedNxmEthValue.div(lowRiskEthLimit);
+    const minRiskMultiplier = utils.min(unstakedRisk, maxStakedRisk);
+
+    const calculatedRisk = Big(1).minus(stakingToLimitRatio).mul(minRiskMultiplier);
+    const risk = utils.max(calculatedRisk, minStakedRisk);
 
     return risk.toFixed();
   }
@@ -134,11 +174,6 @@ class QuoteEngine {
   // totalCover Offered    = Staked Cover Amount + Unstaked Cover Amount
   // totalPrice            = Staked Price + Unstaked Price
   // totalPriceInNXM       = Total Price / if[ quote in DAI, NXM PriceDAI , NXM Price ETH ]
-
-  // const thresholdMetDate = this.
-  // const thresholdMetDays = Math.min(now - thresholdMetDate, 250);
-  //
-  // unstakedRiskCost      = Max[ ((250 - daysSinceThresholdMet) / 250) ^ (Risk Cost Exponent) , Min Unstaked Risk Cost ]
 
   async getLastBlock () {
     const lastStake = await Stake.findOne().sort({ blockNumber: -1 }).exec();

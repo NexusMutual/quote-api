@@ -2,6 +2,7 @@ describe('quote-engine', function () {
   require('./calculate-total-staked-amount');
   require('./calculate-days-diff');
   require('./calculate-threshold-met-date');
-  require('./calculate-unstaked-risk-cost');
+  require('./calculate-unstaked-risk');
+  require('./calculate-staked-risk');
   require('./parse-transactions');
 });
