@@ -91,13 +91,13 @@ class QuoteEngine {
   }
 
   /**
-   * @param {Date} thresholdMetDate
-   * @param {Date} now
+   * @param {Date} since
+   * @param {Date} untill
    * @return {number}
    */
-  static calculateDaysSinceThresholdMet (thresholdMetDate, now) {
+  static calculateDaysDiff (since, untill) {
     const msPerDay = Big(1000 * 3600 * 24); // milliseconds in a day
-    const daysSinceMet = Big(now - thresholdMetDate).div(msPerDay);
+    const daysSinceMet = Big(untill - since).div(msPerDay).abs();
     return parseInt(daysSinceMet.toFixed(0), 10); // rounding down
   }
 
