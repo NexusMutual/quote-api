@@ -51,7 +51,7 @@ class QuoteEngine {
 
   /**
    * @param {Stake[]} unsortedStakes
-   * @param {number} nxmThreshold
+   * @param {string} nxmThreshold
    */
   static calculateThresholdMetDate (unsortedStakes, nxmThreshold) {
 
