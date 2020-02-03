@@ -39,7 +39,16 @@ module.exports = quoteEngine => {
     }
 
     const { contractAddress, coverAmount, currency, period } = req.params;
-    const quote = await quoteEngine.getQuote(contractAddress, coverAmount, currency, period);
+    const quote = await quoteEngine.getQuote(
+      contractAddress.toLowerCase(),
+      coverAmount,
+      currency.toUpperCase(),
+      period,
+    );
+
+    if (quote === null) {
+      return res.send({ error: true, message: 'Unable to create cover on the specified contract' });
+    }
 
     res.send(quote);
   }));

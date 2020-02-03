@@ -19,20 +19,23 @@ describe('calculateThresholdMetDate()', function () {
 
   it('returns null when there are no stakes', function () {
     const expected = null;
-    const actual = QuoteEngine.calculateThresholdMetDate([], '100');
+    const threshold = (100 * 1e18).toFixed();
+    const actual = QuoteEngine.calculateThresholdMetDate([], threshold);
     assert.deepStrictEqual(actual, expected);
   });
 
   it('takes into account stake expiration', function () {
     const stakes = prepareStakes(stakeDataNotMet);
-    const actual = QuoteEngine.calculateThresholdMetDate(stakes, '1000');
+    const threshold = (1000 * 1e18).toFixed();
+    const actual = QuoteEngine.calculateThresholdMetDate(stakes, threshold);
     const expected = null;
     assert.strictEqual(actual, expected);
   });
 
   it('returns the date when the threshold was met', function () {
     const stakes = prepareStakes(stakeDataMet);
-    const date = QuoteEngine.calculateThresholdMetDate(stakes, '1000');
+    const threshold = (1000 * 1e18).toFixed();
+    const date = QuoteEngine.calculateThresholdMetDate(stakes, threshold);
     assert.notStrictEqual(date, null);
 
     const actual = date.getTime();

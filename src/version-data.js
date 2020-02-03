@@ -29,7 +29,7 @@ class VersionData {
   }
 
   instance (code) {
-    const abi = JSON.parse(this.data[code].abi);
+    const abi = JSON.parse(this.data[code].contractAbi);
     const address = this.address(code);
     return new this.web3.eth.Contract(abi, address);
   }
