@@ -4,8 +4,8 @@ const mongoose = require('mongoose');
 
 const Etherscan = require('./etherscan');
 const QuoteEngine = require('./quote-engine');
-const App = require('./app');
 const VersionData = require('./version-data');
+const routes = require('./routes');
 
 const {
   MONGO_URL,
@@ -31,7 +31,8 @@ async function init () {
   console.log('Fetching past data');
   await quoteEngine.fetchNewStakes();
 
-  const app = App(quoteEngine);
+  console.log('Starting app');
+  const app = routes(quoteEngine);
   await startServer(app, PORT);
 
   console.log(`Quote engine listening on port ${PORT}`);
