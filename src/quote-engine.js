@@ -339,7 +339,7 @@ class QuoteEngine {
     const totalCoverInCoverCurrency = totalCoverOffered.mul(coverCurrencyRate);
 
     const generationTime = Date.now();
-    const expireTime = generationTime + 3600 * 1000;
+    const expireTime = generationTime / 1000 + 3600;
 
     return {
       coverPeriod,
