@@ -200,8 +200,7 @@ class QuoteEngine {
    */
   static calculateUnstakedCapacity (unstakedRisk, maxUnstakedRisk, maxCapacityPerContract, stakedCapacity) {
     const isHighRisk = Big(unstakedRisk).gt(maxUnstakedRisk);
-    const maxUnstakedCapacity = isHighRisk ? Big(0) : maxCapacityPerContract;
-    return maxUnstakedCapacity.sub(stakedCapacity);
+    return isHighRisk ? Big(0) : maxCapacityPerContract.sub(stakedCapacity);
   }
 
   /**
@@ -296,12 +295,18 @@ class QuoteEngine {
    */
   static calculateQuote (reqCoverAmount, coverPeriod, stakes, coverCurrencyRate, nxmPrice, stakedNxm, minCapETH, now) {
 
+    const generationTime = Date.now();
+    const expireTime = generationTime / 1000 + 3600;
+
     const minStakedThreshold = Big(MIN_STAKED_THRESHOLD).mul(1e18).toFixed(); // nxmWei
     const thresholdMetDate = QuoteEngine.calculateThresholdMetDate(stakes, minStakedThreshold);
 
     if (thresholdMetDate === null) {
-      // Contract has not met the threshold yet
-      return null;
+      return {
+        reason: 'uncoverable: not enough staking',
+        generationTime,
+        expireTime,
+      }
     }
 
     const daysSinceThresholdMet = QuoteEngine.calculateDaysDiff(thresholdMetDate, now);
@@ -337,9 +342,6 @@ class QuoteEngine {
 
     const totalCoverOffered = stakedCoverAmount.add(unstakedCoverAmount);
     const totalCoverInCoverCurrency = totalCoverOffered.mul(coverCurrencyRate);
-
-    const generationTime = Date.now();
-    const expireTime = generationTime / 1000 + 3600;
 
     return {
       coverPeriod,
@@ -391,7 +393,6 @@ class QuoteEngine {
     const signature = QuoteEngine.signQuote(unsignedQuote);
 
     return {
-      reason: 'ok',
       ...unsignedQuote,
       ...signature,
     };
