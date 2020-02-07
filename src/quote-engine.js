@@ -286,17 +286,26 @@ class QuoteEngine {
    * @param {Big} reqCoverAmount
    * @param {number} coverPeriod
    * @param {Stake[]} stakes
+   * @param {String} coverCurrency
    * @param {Big} coverCurrencyRate
    * @param {Big} nxmPrice
    * @param {Big} stakedNxm
    * @param {Big} minCapETH
-   * @param {Date} now
    * @return {object|null}
    */
-  static calculateQuote (reqCoverAmount, coverPeriod, stakes, coverCurrencyRate, nxmPrice, stakedNxm, minCapETH, now) {
+  static calculateQuote (
+    reqCoverAmount,
+    coverPeriod,
+    stakes,
+    coverCurrency,
+    coverCurrencyRate,
+    nxmPrice,
+    stakedNxm,
+    minCapETH,
+  ) {
 
     const generationTime = Date.now();
-    const expireTime = generationTime / 1000 + 3600;
+    const expireTime = Math.ceil(generationTime / 1000 + 3600);
 
     const minStakedThreshold = Big(MIN_STAKED_THRESHOLD).mul(1e18).toFixed(); // nxmWei
     const thresholdMetDate = QuoteEngine.calculateThresholdMetDate(stakes, minStakedThreshold);
@@ -309,15 +318,19 @@ class QuoteEngine {
       }
     }
 
-    const daysSinceThresholdMet = QuoteEngine.calculateDaysDiff(thresholdMetDate, now);
+    const daysSinceThresholdMet = QuoteEngine.calculateDaysDiff(thresholdMetDate, generationTime);
 
     const riskCostExponent = parseInt(RISK_COST_EXPONENT, 10);
     const lowRiskLimit = Big(LOW_RISK_COST_ETH_LIMIT).mul(1e18).toFixed(); // in wei
 
-    const unstakedRisk = QuoteEngine.calculateUnstakedRisk(daysSinceThresholdMet, riskCostExponent, MIN_UNSTAKED_RISK);
+    const unstakedRisk = QuoteEngine.calculateUnstakedRisk(daysSinceThresholdMet,riskCostExponent, MIN_UNSTAKED_RISK);
     const stakedRisk = QuoteEngine.calculateStakedRisk(
-      stakedNxm.toFixed(), nxmPrice.toFixed(), lowRiskLimit, unstakedRisk,
-      MIN_STAKED_RISK, MAX_STAKED_RISK_MULTIPLIER,
+      stakedNxm.toFixed(),
+      nxmPrice.toFixed(),
+      lowRiskLimit,
+      unstakedRisk,
+      MIN_STAKED_RISK,
+      MAX_STAKED_RISK_MULTIPLIER,
     );
 
     const maxCapacityPerContract = minCapETH.mul(CONTRACT_CAPACITY_LIMIT_PERCENT).mul(1e18); // in wei
@@ -325,12 +338,17 @@ class QuoteEngine {
 
     const maxUnstakedRisk = Big(HIGH_RISK_THRESHOLD);
     const unstakedCapacity = QuoteEngine.calculateUnstakedCapacity(
-      unstakedRisk, maxUnstakedRisk, maxCapacityPerContract, stakedCapacity,
+      unstakedRisk,
+      maxUnstakedRisk,
+      maxCapacityPerContract,
+      stakedCapacity,
     );
 
     const requestedCoverAmountInWei = reqCoverAmount.mul(coverCurrencyRate).mul(1e18);
     const stakedCoverAmount = utils.min(requestedCoverAmountInWei, stakedCapacity);
-    const unstakedCoverAmount = utils.min(requestedCoverAmountInWei.sub(stakedCoverAmount), unstakedCapacity);
+    const unstakedCoverAmount = (stakedCoverAmount >= requestedCoverAmountInWei)
+      ? 0
+      : utils.min(requestedCoverAmountInWei.sub(stakedCoverAmount), unstakedCapacity);
 
     const surplusMargin = COVER_PRICE_SURPLUS_MARGIN;
     const stakedPrice = QuoteEngine.calculatePrice(stakedCoverAmount, stakedRisk, surplusMargin, coverPeriod);
@@ -344,10 +362,11 @@ class QuoteEngine {
     const totalCoverInCoverCurrency = totalCoverOffered.mul(coverCurrencyRate);
 
     return {
+      coverCurrency,
       coverPeriod,
-      coverAmount: totalCoverInCoverCurrency.div(1e18).toFixed(0),
-      coverCurrPrice: quotePriceInCoverCurrencyWei.toFixed(0),
-      PriceNxm: quotePriceInNxmWei.toFixed(0),
+      coverAmount: totalCoverInCoverCurrency.div(1e18),
+      coverCurrPrice: quotePriceInCoverCurrencyWei.div(1e18).toFixed(0),
+      PriceNxm: quotePriceInNxmWei,
       reason: 'ok',
       expireTime,
       generationTime,
@@ -386,9 +405,17 @@ class QuoteEngine {
 
     const stakedNxm = await this.getStakedNxm(contractAddress);
     const minCapETH = await this.getLastMcrEth();
-    const now = new Date();
 
-    const quoteData = QuoteEngine.calculateQuote(amount, period, stakes, currencyRate, nxmPrice, stakedNxm, minCapETH, now);
+    const quoteData = QuoteEngine.calculateQuote(
+      amount,
+      period,
+      stakes,
+      currency,
+      currencyRate,
+      nxmPrice,
+      stakedNxm,
+      minCapETH,
+    );
     const unsignedQuote = { ...quoteData, coverCurr: currency, smartCA: contractAddress };
     const signature = QuoteEngine.signQuote(unsignedQuote);
 
