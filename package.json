@@ -27,6 +27,7 @@
   },
   "scripts": {
     "start": "node src/index.js",
+    "export": "node src/export.js",
     "dev": "nodemon src/index.js",
     "test": "mocha"
   },
