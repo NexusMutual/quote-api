@@ -347,7 +347,7 @@ class QuoteEngine {
     const requestedCoverAmountInWei = reqCoverAmount.mul(coverCurrencyRate).mul(1e18);
     const stakedCoverAmount = utils.min(requestedCoverAmountInWei, stakedCapacity);
     const unstakedCoverAmount = (stakedCoverAmount >= requestedCoverAmountInWei)
-      ? 0
+      ? Big(0)
       : utils.min(requestedCoverAmountInWei.sub(stakedCoverAmount), unstakedCapacity);
 
     const surplusMargin = COVER_PRICE_SURPLUS_MARGIN;
