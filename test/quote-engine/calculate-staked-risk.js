@@ -8,7 +8,7 @@ describe('calculateStakedRisk()', function () {
   it('returns minimum staked risk if staked nxm is over the provided eth limit', function () {
 
     const stakedNxm = Big(128000).mul(1e18).toFixed();
-    const nxmPriceEth = '0.015625'; // (2.5 $/NXM) / (160 $/ETH) = 0.015625 ETH/NXM
+    const nxmPriceEth = '15625000000000000'; // (2.5 $/NXM) / (160 $/ETH) = 0.015625 ETH/NXM
     const lowRiskEthLimit = Big(1000).mul(1e18).toFixed();
     const unstakedRisk = '0.2';
     const minStakedRisk = '0.01';
@@ -26,7 +26,7 @@ describe('calculateStakedRisk()', function () {
   it('returns calculated staked risk if staked nxm is under the provided eth limit', function () {
 
     const stakedNxm = Big(32000).mul(1e18).toFixed(); // 500 ETH
-    const nxmPriceEth = '0.015625'; // (2.5 $/NXM) / (160 $/ETH) = 0.015625 ETH/NXM
+    const nxmPriceEth = '15625000000000000'; // (2.5 $/NXM) / (160 $/ETH) = 0.015625 ETH/NXM
     const lowRiskEthLimit = Big(1000).mul(1e18).toFixed();
     const unstakedRisk = '0.2';
     const minStakedRisk = '0.01';
@@ -44,7 +44,7 @@ describe('calculateStakedRisk()', function () {
   it('uses the unstaked risk as a multiplier if it is lower than max staked risk', function () {
 
     const stakedNxm = Big(6400).mul(1e18).toFixed(); // 100 ETH
-    const nxmPriceEth = '0.015625'; // (2.5 $/NXM) / (160 $/ETH) = 0.015625 ETH/NXM
+    const nxmPriceEth = '15625000000000000'; // (2.5 $/NXM) / (160 $/ETH) = 0.015625 ETH/NXM
     const lowRiskEthLimit = Big(1000).mul(1e18).toFixed();
     const unstakedRisk = '0.05';
     const minStakedRisk = '0.01';
