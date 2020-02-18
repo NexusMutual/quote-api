@@ -391,9 +391,9 @@ class QuoteEngine {
     return {
       coverCurrency,
       coverPeriod,
-      coverAmount: totalCoverInCoverCurrency,
+      coverAmount: totalCoverInCoverCurrency.toFixed(0),
       coverCurrPrice: quotePriceInCoverCurrencyWei.toFixed(6),
-      PriceNxm: quotePriceInNxmWei,
+      PriceNxm: quotePriceInNxmWei.toFixed(0),
       reason: 'ok',
       expireTime,
       generationTime,
