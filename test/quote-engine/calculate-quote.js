@@ -72,8 +72,8 @@ describe('calculateQuote()', function () {
       nxmPrice, stakedNxm, minCapETH, now,
     );
 
-    const expectedPriceInETH = Big('0.9776');
-    const expectedPriceInNXM = Big('97.76');
+    const expectedPriceInETH = Big('0.9776').mul('1e18');
+    const expectedPriceInNXM = Big('97.76').mul('1e18');
 
     it('returns the cover price in ETH', function () {
       assert.strict(expectedPriceInETH.eq(quoteData.coverCurrPrice));
@@ -100,17 +100,8 @@ describe('calculateQuote()', function () {
       nxmPrice, stakedNxm, minCapETH, now,
     );
 
-    const humanQuote = Object.keys(quoteData).reduce((acc, k) => {
-      const isBig = quoteData[k] instanceof Big;
-      const value = isBig ? quoteData[k].toFixed() : quoteData[k];
-      return { ...acc, [k]: value };
-    }, {});
-
-    console.log(humanQuote);
-    console.log(quoteData.coverCurrPrice);
-
-    const expectedPriceInDAI = Big('244.40');
-    const expectedPriceInNXM = Big('97.76');
+    const expectedPriceInDAI = Big('244.40').mul('1e18');
+    const expectedPriceInNXM = Big('97.76').mul('1e18');
 
     it('returns the cover price in DAI', function () {
       assert.strict(expectedPriceInDAI.eq(quoteData.coverCurrPrice));

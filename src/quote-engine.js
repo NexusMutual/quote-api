@@ -382,8 +382,8 @@ class QuoteEngine {
     const unstakedPrice = QuoteEngine.calculatePrice(unstakedCoverAmount, unstakedRisk, surplusMargin, coverPeriod);
 
     const quotePriceInWei = stakedPrice.add(unstakedPrice);
-    const quotePriceInCoverCurrencyWei = quotePriceInWei.div(coverCurrencyRate);
-    const quotePriceInNxmWei = quotePriceInWei.div(nxmPrice);
+    const quotePriceInCoverCurrencyWei = quotePriceInWei.div(coverCurrencyRate).mul('1e18');
+    const quotePriceInNxmWei = quotePriceInWei.div(nxmPrice).mul('1e18');
 
     const totalCoverOffered = stakedCoverAmount.add(unstakedCoverAmount);
     const totalCoverInCoverCurrency = totalCoverOffered.div(coverCurrencyRate);
