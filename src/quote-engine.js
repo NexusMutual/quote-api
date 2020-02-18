@@ -423,7 +423,7 @@ class QuoteEngine {
 
     const amount = Big(reqCoverAmount);
     const period = parseInt(reqPeriod, 10);
-    const now = Date();
+    const now = new Date();
 
     const stakes = await Stake.find({ contractAddress });
     console.log(`Found ${stakes.length} stakes for the contract`);
