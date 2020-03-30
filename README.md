@@ -1,8 +1,8 @@
 # Quote API
 
-## 🚧🚧⚠️ UNDER CONSTRUCTION ⚠️🚧
+## 🚧⚠️ UNDER CONSTRUCTION ⚠️🚧
 
-Heads up! This project is still in development. The code in this repository is not production ready - use at own risk.
+Heads up! This project is still in development. The code in this repository is not production ready - use it at your own risk.
 
 ## Requirements
 ```
