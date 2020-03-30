@@ -401,14 +401,15 @@ class QuoteEngine {
   }
 
   /**
+   * Not implemented in the alpha version
    * @param {object} quote
    * @return {{ v: number, r: string, s: string }}
    */
   static signQuote (quote) {
     return {
       v: 28,
-      r: '0x40298ef06ce874b75d051d7821aad6e9889a5f49133e6cf0e178ac7af6696f53',
-      s: '0x50cccb76d5efc43a305cd953b094a59c0833191e08ced59d3dc058068f32bf46',
+      r: '0xdeadbeef',
+      s: '0xdeadbeef',
     };
   }
 
