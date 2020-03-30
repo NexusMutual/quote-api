@@ -1,4 +1,4 @@
-# Quote engine
+# Quote API
 
 ## Requirements
 ```
@@ -7,10 +7,9 @@ node >= 12
 
 ## Getting started
 
-
 ```
 # Clone this repo:
-git clone https://github.com/nexusmutual/quote-engine.git
+git clone https://github.com/nexusmutual/quote-api.git
 
 # Install dependencies
 npm install
@@ -20,7 +19,7 @@ cp .env.sample .env
 $EDITOR .env
 
 # Run it
-node quote-engine.js
+npm start
 ```
 
 ## API docs
