@@ -1,5 +1,9 @@
 # Quote API
 
+## 🚧🚧⚠️ UNDER CONSTRUCTION ⚠️🚧
+
+Heads up! This project is still in development. The code in this repository is not production ready - use at own risk.
+
 ## Requirements
 ```
 node >= 12
