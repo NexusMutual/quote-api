@@ -40,6 +40,6 @@ async function init () {
 
 init()
   .catch(error => {
-    console.error(error);
+    console.error('Unhandled app error:', error);
     process.exit(1);
   });

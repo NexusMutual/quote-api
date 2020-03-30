@@ -2,7 +2,7 @@ const express = require('express');
 
 const asyncRoute = route => (req, res) => {
   route(req, res).catch(e => {
-    console.error(e);
+    console.error('Route error:', e);
     res.status(500).send({
       error: true,
       message: 'Internal server error',
