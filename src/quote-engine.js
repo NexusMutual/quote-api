@@ -412,9 +412,8 @@ class QuoteEngine {
   }
 
   /**
-   * @param {Big} reqCoverAmount Amount user wants to cover in cover currency, ex: 100
+   * @param {Big} requestedCoverAmount Amount user wants to cover in cover currency, ex: 100
    * @param {number} coverPeriod Cover period in days
-   * @param {Stake[]} stakes
    * @param {String} coverCurrency Ex: "ETH" or "DAI"
    * @param {Big} coverCurrencyRate Amount of wei for 1 cover currency unit
    * @param {Big} nxmPrice Amount of wei for 1 NXM
@@ -435,14 +434,14 @@ class QuoteEngine {
    *     coverCurrency: string,
    *     coverPeriod: number,
    *     coverAmount: Big,
-   *     coverCurrPrice: Big,
-   *     PriceNxm: Big,
+   *     priceCoverCurrency: Big,
+   *     priceNxm: Big,
    * }} QuoteCoverable
    *
    * @return {QuoteCoverable|QuoteUncoverable|null}
    */
   static computeQuote (
-    requestCoverAmount,
+    requestedCoverAmount,
     coverPeriod,
     coverCurrency,
     coverCurrencyRate,
@@ -457,7 +456,7 @@ class QuoteEngine {
     const maxGlobalCapacityPerContract = minCapETH.mul(CONTRACT_CAPACITY_LIMIT_PERCENT).mul('1e18'); // in wei
     const maxCapacity = QuoteEngine.calculateCapacity(stakedNxm, nxmPrice, maxGlobalCapacityPerContract);
 
-    const requestedCoverAmountInWei = requestCoverAmount.mul(coverCurrencyRate);
+    const requestedCoverAmountInWei = requestedCoverAmount.mul(coverCurrencyRate);
     // limit cover amount by maxCapacity
     const finalCoverAmountInWei = utils.min(maxCapacity, requestedCoverAmountInWei);
 
