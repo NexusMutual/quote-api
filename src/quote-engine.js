@@ -183,7 +183,7 @@ class QuoteEngine {
    * @param {Big} maxCapacityPerContract
    * @return {Big}
    */
-  static calculateStakedCapacity (stakedNxm, nxmPriceEth, maxCapacityPerContract) {
+  static calculateCapacity (stakedNxm, nxmPriceEth, maxCapacityPerContract) {
     const stakedNxmEthValue = Big(stakedNxm).mul(nxmPriceEth);
     return utils.min(stakedNxmEthValue, maxCapacityPerContract);
   }
@@ -263,7 +263,7 @@ class QuoteEngine {
    */
   async getDaiRate () {
     const chainlinkAggregator = this.nexusContractLoader.instance('CHAINLINK-DAI-ETH');
-    const daiRate = await chainlinkAggregator.methods.latestAnswer().call();
+    const daiRate = await chainlinkAggregator.latestAnswer().call();
     return Big(daiRate);
   }
 
@@ -357,7 +357,7 @@ class QuoteEngine {
     );
 
     const maxCapacityPerContract = minCapETH.mul(CONTRACT_CAPACITY_LIMIT_PERCENT).mul('1e18'); // in wei
-    const stakedCapacity = QuoteEngine.calculateStakedCapacity(stakedNxm, nxmPrice, maxCapacityPerContract);
+    const stakedCapacity = QuoteEngine.calculateCapacity(stakedNxm, nxmPrice, maxCapacityPerContract);
 
     const maxUnstakedRisk = Big(HIGH_RISK_THRESHOLD);
     const unstakedCapacity = QuoteEngine.calculateUnstakedCapacity(
@@ -441,24 +441,8 @@ class QuoteEngine {
    *
    * @return {QuoteCoverable|QuoteUncoverable|null}
    */
-  static computeRiskCost(stakedNxm, coverAmount, maxCapacity) {
-    const STAKED_HIGH_RISK_COST = 100;
-    const LOW_RISK_COST_LIMIT_NXM = 2e5;
-    const PRICING_EXPONENT = 7;
-    const STAKED_LOW_RISK_COST = 1;
-    const SURPLUS_PERCENTAGE = 30;
-    // uncappedRiskCost = stakedHighRiskCost * [1 - netStakedNXM/lowRiskCostLimit ^ (1/pricingExponent) ];
-    let uncappedRiskCost = STAKED_HIGH_RISK_COST
-      * (1 - stakedNxm / LOW_RISK_COST_LIMIT_NXM ** (1/PRICING_EXPONENT));
-    const riskCostPercentage = Math.max(STAKED_LOW_RISK_COST, uncappedRiskCost);
-
-    const finalCostPercentage = riskCostPercentage * coverAmount / 100 * (100 + SURPLUS_PERCENTAGE) / 100;
-
-    return Math.min(finalCostPercentage * coverAmount, maxCapacity.toNumber());
-  }
-
   static computeQuote (
-    coverAmount,
+    requestCoverAmount,
     coverPeriod,
     coverCurrency,
     coverCurrencyRate,
@@ -470,66 +454,44 @@ class QuoteEngine {
     const generationTime = now.getTime();
     const expireTime = Math.ceil(generationTime / 1000 + 3600);
 
-    const maxCapacityPerContract = minCapETH.mul(CONTRACT_CAPACITY_LIMIT_PERCENT).mul('1e18'); // in wei
-    const coverPrice = this.computeRiskCost(stakedNxm, coverAmount, maxCapacityPerContract);
+    const maxGlobalCapacityPerContract = minCapETH.mul(CONTRACT_CAPACITY_LIMIT_PERCENT).mul('1e18'); // in wei
+    const maxCapacity = QuoteEngine.calculateCapacity(stakedNxm, nxmPrice, maxGlobalCapacityPerContract);
+
+    const requestedCoverAmountInWei = requestCoverAmount.mul(coverCurrencyRate);
+    // limit cover amount by maxCapacity
+    const finalCoverAmountInWei = utils.min(maxCapacity, requestedCoverAmountInWei);
+
+    const risk = this.computeRisk(stakedNxm, finalCoverAmountInWei, maxGlobalCapacityPerContract);
+
+    const surplusMargin = COVER_PRICE_SURPLUS_MARGIN;
+    const quotePriceInWei = QuoteEngine.calculatePrice(finalCoverAmountInWei, risk, surplusMargin, coverPeriod);
+
+    const quotePriceInCoverCurrencyWei = quotePriceInWei.div(coverCurrencyRate).mul('1e18');
+    const quotePriceInNxmWei = quotePriceInWei.div(nxmPrice).mul('1e18');
+    const finalCoverInCoverCurrency = finalCoverAmountInWei.div(coverCurrencyRate);
 
     return {
       coverCurrency,
       coverPeriod,
-      coverAmount: totalCoverInCoverCurrency.toFixed(0),
-      coverCurrPrice: coverPrice.toFixed(6),
-      PriceNxm: quotePriceInNxmWei.toFixed(0),
+      coverAmount: finalCoverInCoverCurrency.toFixed(0),
+      priceCoverCurrency: quotePriceInCoverCurrencyWei.toFixed(6),
+      priceNxm: quotePriceInNxmWei.toFixed(0),
       reason: 'ok',
       expireTime,
       generationTime,
     };
+  }
 
-    const minStakedThreshold = Big(MIN_STAKED_THRESHOLD).mul('1e18').toFixed(); // nxmWe
-
-    const daysSinceThresholdMet = QuoteEngine.calculateDaysDiff(thresholdMetDate, now);
-
-    const riskCostExponent = parseInt(RISK_COST_EXPONENT, 10);
-    const lowRiskLimit = Big(LOW_RISK_COST_ETH_LIMIT).mul('1e18').toFixed(); // in wei
-
-    const unstakedRisk = QuoteEngine.calculateUnstakedRisk(daysSinceThresholdMet, riskCostExponent, MIN_UNSTAKED_RISK);
-    const stakedRisk = QuoteEngine.calculateStakedRisk(
-      stakedNxm.toFixed(),
-      nxmPrice.toFixed(),
-      lowRiskLimit,
-      unstakedRisk,
-      MIN_STAKED_RISK,
-      MAX_STAKED_RISK,
-    );
-
-
-    const stakedCapacity = QuoteEngine.calculateStakedCapacity(stakedNxm, nxmPrice, maxCapacityPerContract);
-
-    const maxUnstakedRisk = Big(HIGH_RISK_THRESHOLD);
-    const unstakedCapacity = QuoteEngine.calculateUnstakedCapacity(
-      unstakedRisk,
-      maxUnstakedRisk,
-      maxCapacityPerContract,
-      stakedCapacity,
-    );
-
-    const requestedCoverAmountInWei = reqCoverAmount.mul(coverCurrencyRate);
-    const stakedCoverAmount = utils.min(requestedCoverAmountInWei, stakedCapacity);
-    const leftCoverAmount = requestedCoverAmountInWei.sub(stakedCoverAmount);
-
-    const unstakedCoverAmount = stakedCoverAmount.gte(requestedCoverAmountInWei)
-      ? Big(0)
-      : utils.min(leftCoverAmount, unstakedCapacity);
-
-    const surplusMargin = COVER_PRICE_SURPLUS_MARGIN;
-    const stakedPrice = QuoteEngine.calculatePrice(stakedCoverAmount, stakedRisk, surplusMargin, coverPeriod);
-    const unstakedPrice = QuoteEngine.calculatePrice(unstakedCoverAmount, unstakedRisk, surplusMargin, coverPeriod);
-
-    const quotePriceInWei = stakedPrice.add(unstakedPrice);
-    const quotePriceInCoverCurrencyWei = quotePriceInWei.div(coverCurrencyRate).mul('1e18');
-    const quotePriceInNxmWei = quotePriceInWei.div(nxmPrice).mul('1e18');
-
-    const totalCoverOffered = stakedCoverAmount.add(unstakedCoverAmount);
-    const totalCoverInCoverCurrency = totalCoverOffered.div(coverCurrencyRate);
+  static computeRisk(stakedNxm) {
+    const STAKED_HIGH_RISK_COST = Big(100);
+    const LOW_RISK_COST_LIMIT_NXM = Big(2e5);
+    const PRICING_EXPONENT = Big(7);
+    const STAKED_LOW_RISK_COST = Big(1);
+    // uncappedRiskCost = stakedHighRiskCost * [1 - netStakedNXM/lowRiskCostLimit ^ (1/pricingExponent) ];
+    const exponent = Big(1).div(PRICING_EXPONENT);
+    let uncappedRiskCost = STAKED_HIGH_RISK_COST.mul(Big(1).sub(stakedNxm.div(LOW_RISK_COST_LIMIT_NXM).pow(exponent)));
+    const riskCost = utils.max(STAKED_LOW_RISK_COST, uncappedRiskCost);
+    return riskCost;
   }
 
   /**
@@ -559,7 +521,7 @@ class QuoteEngine {
       minCapETH,
       now,
     );
-    const unsignedQuote = { ...quoteData, coverCurr: currency, smartCA: contractAddress };
+    const unsignedQuote = { ...quoteData, coverCurrency: currency, contractAddress };
     const signature = QuoteEngine.signQuote(unsignedQuote);
 
     return {
