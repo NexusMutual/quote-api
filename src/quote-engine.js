@@ -3,6 +3,7 @@ const Big = require('big.js');
 const web3 = require('web3');
 
 const utils = require('./utils');
+const { hex } = require('./utils');
 const Stake = require('./models/stake');
 const ApiKey = require('./models/api-key');
 
@@ -21,14 +22,12 @@ const MAX_STAKED_RISK = '0.1';
 const COVER_PRICE_SURPLUS_MARGIN = '0.3';
 
 class QuoteEngine {
-
   /**
    * @param {Etherscan} etherscan
    * @param {VersionData} versionData
    */
-  constructor (etherscan, versionData) {
-    this.etherscan = etherscan;
-    this.versionData = versionData;
+  constructor (nexusContractLoader) {
+    this.nexusContractLoader = nexusContractLoader;
   }
 
   /**
@@ -231,9 +230,9 @@ class QuoteEngine {
    * @return {Big} Staked NXM amount as big.js instance
    */
   async getStakedNxm (contractAddress) {
-    const tokenFunctions = this.versionData.instance('TF');
-    const staked = await tokenFunctions.methods.getTotalStakedTokensOnSmartContract(contractAddress).call();
-    return Big(staked);
+    const pooledStaking = this.nexusContractLoader.instance('PS');
+    const staked = await pooledStaking.contractStake(contractAddress);
+    return staked;
   }
 
   /**
@@ -242,9 +241,8 @@ class QuoteEngine {
    * @return {Big}
    */
   async getTokenPrice () {
-    const tokenFunctions = this.versionData.instance('TF');
-    const currency = web3.utils.fromAscii('ETH');
-    const price = await tokenFunctions.methods.getTokenPrice(currency).call();
+    const tokenFunctions = this.nexusContractLoader.instance('TF');
+    const price = await tokenFunctions.getTokenPrice(hex('ETH'));
     return Big(price);
   }
 
@@ -254,9 +252,9 @@ class QuoteEngine {
    * @return {Big}
    */
   async getLastMcrEth () {
-    const poolData = this.versionData.instance('PD');
-    const mcrEth = await poolData.methods.getLastMCREther().call();
-    return Big(mcrEth);
+    const poolData = this.nexusContractLoader.instance('PD');
+    const mcrEth = await poolData.getLastMCREther();
+    return mcrEth;
   }
 
   /**
@@ -264,7 +262,7 @@ class QuoteEngine {
    * @return {Big}
    */
   async getDaiRate () {
-    const chainlinkAggregator = this.versionData.instance('CHAINLINK-DAI-ETH');
+    const chainlinkAggregator = this.nexusContractLoader.instance('CHAINLINK-DAI-ETH');
     const daiRate = await chainlinkAggregator.methods.latestAnswer().call();
     return Big(daiRate);
   }
@@ -414,31 +412,146 @@ class QuoteEngine {
   }
 
   /**
+   * @param {Big} reqCoverAmount Amount user wants to cover in cover currency, ex: 100
+   * @param {number} coverPeriod Cover period in days
+   * @param {Stake[]} stakes
+   * @param {String} coverCurrency Ex: "ETH" or "DAI"
+   * @param {Big} coverCurrencyRate Amount of wei for 1 cover currency unit
+   * @param {Big} nxmPrice Amount of wei for 1 NXM
+   * @param {Big} stakedNxm
+   * @param {Big} minCapETH
+   * @param {Date} now
+   *
+   * @typedef {{
+   *   reason: string,
+   *   generationTime: number,
+   *   expireTime: number,
+   * }} QuoteUncoverable
+   *
+   * @typedef {{
+   *     reason: string,
+   *     generationTime: number,
+   *     expireTime: number,
+   *     coverCurrency: string,
+   *     coverPeriod: number,
+   *     coverAmount: Big,
+   *     coverCurrPrice: Big,
+   *     PriceNxm: Big,
+   * }} QuoteCoverable
+   *
+   * @return {QuoteCoverable|QuoteUncoverable|null}
+   */
+  static computeRiskCost(stakedNxm, coverAmount, maxCapacity) {
+    const STAKED_HIGH_RISK_COST = 100;
+    const LOW_RISK_COST_LIMIT_NXM = 2e5;
+    const PRICING_EXPONENT = 7;
+    const STAKED_LOW_RISK_COST = 1;
+    const SURPLUS_PERCENTAGE = 30;
+    // uncappedRiskCost = stakedHighRiskCost * [1 - netStakedNXM/lowRiskCostLimit ^ (1/pricingExponent) ];
+    let uncappedRiskCost = STAKED_HIGH_RISK_COST
+      * (1 - stakedNxm / LOW_RISK_COST_LIMIT_NXM ** (1/PRICING_EXPONENT));
+    const riskCostPercentage = Math.max(STAKED_LOW_RISK_COST, uncappedRiskCost);
+
+    const finalCostPercentage = riskCostPercentage * coverAmount / 100 * (100 + SURPLUS_PERCENTAGE) / 100;
+
+    return Math.min(finalCostPercentage * coverAmount, maxCapacity.toNumber());
+  }
+
+  static computeQuote (
+    coverAmount,
+    coverPeriod,
+    coverCurrency,
+    coverCurrencyRate,
+    nxmPrice,
+    stakedNxm,
+    minCapETH,
+    now,
+  ) {
+    const generationTime = now.getTime();
+    const expireTime = Math.ceil(generationTime / 1000 + 3600);
+
+    const maxCapacityPerContract = minCapETH.mul(CONTRACT_CAPACITY_LIMIT_PERCENT).mul('1e18'); // in wei
+    const coverPrice = this.computeRiskCost(stakedNxm, coverAmount, maxCapacityPerContract);
+
+    return {
+      coverCurrency,
+      coverPeriod,
+      coverAmount: totalCoverInCoverCurrency.toFixed(0),
+      coverCurrPrice: coverPrice.toFixed(6),
+      PriceNxm: quotePriceInNxmWei.toFixed(0),
+      reason: 'ok',
+      expireTime,
+      generationTime,
+    };
+
+    const minStakedThreshold = Big(MIN_STAKED_THRESHOLD).mul('1e18').toFixed(); // nxmWe
+
+    const daysSinceThresholdMet = QuoteEngine.calculateDaysDiff(thresholdMetDate, now);
+
+    const riskCostExponent = parseInt(RISK_COST_EXPONENT, 10);
+    const lowRiskLimit = Big(LOW_RISK_COST_ETH_LIMIT).mul('1e18').toFixed(); // in wei
+
+    const unstakedRisk = QuoteEngine.calculateUnstakedRisk(daysSinceThresholdMet, riskCostExponent, MIN_UNSTAKED_RISK);
+    const stakedRisk = QuoteEngine.calculateStakedRisk(
+      stakedNxm.toFixed(),
+      nxmPrice.toFixed(),
+      lowRiskLimit,
+      unstakedRisk,
+      MIN_STAKED_RISK,
+      MAX_STAKED_RISK,
+    );
+
+
+    const stakedCapacity = QuoteEngine.calculateStakedCapacity(stakedNxm, nxmPrice, maxCapacityPerContract);
+
+    const maxUnstakedRisk = Big(HIGH_RISK_THRESHOLD);
+    const unstakedCapacity = QuoteEngine.calculateUnstakedCapacity(
+      unstakedRisk,
+      maxUnstakedRisk,
+      maxCapacityPerContract,
+      stakedCapacity,
+    );
+
+    const requestedCoverAmountInWei = reqCoverAmount.mul(coverCurrencyRate);
+    const stakedCoverAmount = utils.min(requestedCoverAmountInWei, stakedCapacity);
+    const leftCoverAmount = requestedCoverAmountInWei.sub(stakedCoverAmount);
+
+    const unstakedCoverAmount = stakedCoverAmount.gte(requestedCoverAmountInWei)
+      ? Big(0)
+      : utils.min(leftCoverAmount, unstakedCapacity);
+
+    const surplusMargin = COVER_PRICE_SURPLUS_MARGIN;
+    const stakedPrice = QuoteEngine.calculatePrice(stakedCoverAmount, stakedRisk, surplusMargin, coverPeriod);
+    const unstakedPrice = QuoteEngine.calculatePrice(unstakedCoverAmount, unstakedRisk, surplusMargin, coverPeriod);
+
+    const quotePriceInWei = stakedPrice.add(unstakedPrice);
+    const quotePriceInCoverCurrencyWei = quotePriceInWei.div(coverCurrencyRate).mul('1e18');
+    const quotePriceInNxmWei = quotePriceInWei.div(nxmPrice).mul('1e18');
+
+    const totalCoverOffered = stakedCoverAmount.add(unstakedCoverAmount);
+    const totalCoverInCoverCurrency = totalCoverOffered.div(coverCurrencyRate);
+  }
+
+  /**
    * @param {string} contractAddress
-   * @param {string} reqCoverAmount Requested cover amount (might differ from offered cover amount)
+   * @param {string} coverAmount Requested cover amount (might differ from offered cover amount)
    * @param {string} currency
    * @param {string} reqPeriod
    * @return {object|null}
    */
-  async getQuote (contractAddress, reqCoverAmount, currency, reqPeriod) {
-
-    const amount = Big(reqCoverAmount);
+  async getQuote (contractAddress, coverAmount, currency, reqPeriod) {
+    const amount = Big(coverAmount);
     const period = parseInt(reqPeriod, 10);
     const now = new Date();
-
-    const stakes = await Stake.find({ contractAddress });
-    console.log(`Found ${stakes.length} stakes for the contract`);
-
     const currencyRate = await this.getCurrencyRate(currency); // ETH amount for 1 unit of the currency
     const nxmPrice = await this.getTokenPrice(); // ETH amount for 1 unit of the currency
 
     const stakedNxm = await this.getStakedNxm(contractAddress);
     const minCapETH = await this.getLastMcrEth();
 
-    const quoteData = QuoteEngine.calculateQuote(
+    const quoteData = QuoteEngine.computeQuote(
       amount,
       period,
-      stakes,
       currency,
       currencyRate,
       nxmPrice,
@@ -476,19 +589,6 @@ class QuoteEngine {
   async getLastBlock () {
     const lastStake = await Stake.findOne().sort({ blockNumber: -1 });
     return lastStake ? lastStake.blockNumber : 0;
-  }
-
-  async fetchNewStakes () {
-    const lastBlock = await this.getLastBlock();
-    const startBlock = lastBlock + 1;
-
-    console.log(`Fetching transactions starting with ${startBlock}`);
-    const watchedContract = this.versionData.address('TF'); // TokenFunctions
-    const transactions = await this.etherscan.getTransactions(watchedContract, { startBlock });
-    const stakes = QuoteEngine.parseTransactions(transactions);
-
-    console.log(`Found ${stakes.length} new stakes`);
-    Stake.insertMany(stakes);
   }
 
   async isOriginAllowed (origin, apiKey) {

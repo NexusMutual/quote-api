@@ -30,8 +30,11 @@ function max (a, b) {
   return bigA.gt(bigB) ? bigA : bigB;
 }
 
+const hex = string => '0x' + Buffer.from(string).toString('hex');
+
 module.exports = {
   wrap,
   min,
   max,
+  hex
 };

@@ -1,10 +1,7 @@
 require('dotenv').config();
-
 const mongoose = require('mongoose');
-
-const Etherscan = require('./etherscan');
 const QuoteEngine = require('./quote-engine');
-const VersionData = require('./version-data');
+const NexusContractLoader = require('./nexus-contract-loader');
 const routes = require('./routes');
 
 const {
@@ -17,25 +14,19 @@ async function startServer (app, port) {
 }
 
 async function init () {
+
   console.log('Connecting to database');
   const opts = { useNewUrlParser: true, useUnifiedTopology: true };
   await mongoose.connect(MONGO_URL, opts);
 
   console.log('Initializing version data');
-  const versionData = new VersionData();
-  await versionData.init();
+  const nexusContractLoader = new NexusContractLoader();
+  await nexusContractLoader.init();
 
-  const etherscan = new Etherscan();
-  const quoteEngine = new QuoteEngine(etherscan, versionData);
-
-  console.log('Fetching past data');
-  await quoteEngine.fetchNewStakes();
-
-  console.log('Starting app');
+  const quoteEngine = new QuoteEngine(nexusContractLoader);
+  console.log(`Quote engine listening on port ${PORT}`);
   const app = routes(quoteEngine);
   await startServer(app, PORT);
-
-  console.log(`Quote engine listening on port ${PORT}`);
 }
 
 init()

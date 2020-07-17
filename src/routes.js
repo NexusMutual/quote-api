@@ -25,20 +25,13 @@ module.exports = quoteEngine => {
     next();
   });
 
-  app.get('/getQuote/:coverAmount/:currency/:period/:contractAddress/:version', asyncRoute(async (req, res) => {
+  app.get('/quotes', asyncRoute(async (req, res) => {
 
-    const origin = req.get('origin');
-    const apiKey = req.headers['x-api-key'];
-    const isAllowed = await quoteEngine.isOriginAllowed(origin, apiKey);
+    const coverAmount = parseInt(req.query.coverAmount);
+    const currency = req.query.currency;
+    const period = parseInt(req.query.period);
+    const contractAddress = req.query.contractAddress;
 
-    if (!isAllowed) {
-      return res.status(403).send({
-        error: true,
-        message: 'Origin not allowed. Contact us for an API key',
-      });
-    }
-
-    const { contractAddress, coverAmount, currency, period } = req.params;
     const quote = await quoteEngine.getQuote(
       contractAddress.toLowerCase(),
       coverAmount,
@@ -47,9 +40,8 @@ module.exports = quoteEngine => {
     );
 
     if (quote === null) {
-      return res.send({ error: true, message: 'Unable to create cover on the specified contract' });
+      return res.status(400).send({ error: true, message: 'Unable to create cover on the specified contract' });
     }
-
     res.send(quote);
   }));
 
