@@ -3,7 +3,6 @@ const ethABI = require('ethereumjs-abi');
 const util = require('ethereumjs-util');
 const utils = require('./utils');
 const { hex } = require('./utils');
-const ApiKey = require('./models/api-key');
 const BN = require('bn.js');
 
 
@@ -267,21 +266,6 @@ class QuoteEngine {
       ...unsignedQuote,
       ...signature,
     };
-  }
-
-  async isOriginAllowed (origin, apiKey) {
-
-    if (/\.nexusmutual\.io$/.test(origin)) {
-      return true;
-    }
-
-    if (!apiKey) { // null, undefined, etc
-      return false;
-    }
-
-    apiKey = await ApiKey.findOne({ origin, apiKey });
-
-    return apiKey !== null;
   }
 }
 
