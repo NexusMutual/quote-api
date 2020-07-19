@@ -1,9 +1,10 @@
 const express = require('express');
 const ApiKey = require('./models/api-key');
+const log = require('./log');
 
 const asyncRoute = route => (req, res) => {
   route(req, res).catch(e => {
-    console.error('Route error:', e);
+    log.error(`Route error: ${e.stack}`);
     res.status(500).send({
       error: true,
       message: 'Internal server error',
@@ -20,7 +21,7 @@ module.exports = quoteEngine => {
   const app = express();
 
   app.use((req, res, next) => {
-    console.log(`${req.method} ${req.originalUrl}`);
+    log.info(`${req.method} ${req.originalUrl}`);
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Headers', 'x-api-key');
     next();

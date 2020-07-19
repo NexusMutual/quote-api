@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const QuoteEngine = require('./quote-engine');
 const NexusContractLoader = require('./nexus-contract-loader');
 const routes = require('./routes');
+const log = require('./log');
 
 const {
   MONGO_URL,
@@ -16,22 +17,22 @@ async function startServer (app, port) {
 
 async function init () {
 
-  console.log('Connecting to database');
+  log.info('Connecting to database');
   const opts = { useNewUrlParser: true, useUnifiedTopology: true };
   await mongoose.connect(MONGO_URL, opts);
 
-  console.log('Initializing version data');
+  log.info('Initializing version data');
   const nexusContractLoader = new NexusContractLoader();
   await nexusContractLoader.init();
 
   const quoteEngine = new QuoteEngine(nexusContractLoader, PRIVATE_KEY);
-  console.log(`Quote engine listening on port ${PORT}`);
+  log.info(`Quote engine listening on port ${PORT}`);
   const app = routes(quoteEngine);
   await startServer(app, PORT);
 }
 
 init()
   .catch(error => {
-    console.error('Unhandled app error:', error);
+    log.error(`Unhandled app error: ${error}`);
     process.exit(1);
   });
