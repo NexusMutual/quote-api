@@ -1,19 +1,25 @@
 const Big = require('big.js');
+const ethABI = require('ethereumjs-abi');
+const util = require('ethereumjs-util');
 const utils = require('./utils');
 const { hex } = require('./utils');
 const ApiKey = require('./models/api-key');
+const BN = require('bn.js');
+
 
 const DAYS_PER_YEAR = '365.25';
 const CONTRACT_CAPACITY_LIMIT_PERCENT = '0.2';
 const COVER_PRICE_SURPLUS_MARGIN = '0.3';
+
 
 class QuoteEngine {
   /**
    * @param {Etherscan} etherscan
    * @param {VersionData} versionData
    */
-  constructor (nexusContractLoader) {
+  constructor (nexusContractLoader, privateKey) {
     this.nexusContractLoader = nexusContractLoader;
+    this.privateKey = privateKey;
   }
 
   /**
@@ -113,15 +119,35 @@ class QuoteEngine {
   }
 
   /**
-   * Not implemented in the alpha version
+   *
    * @param {object} quote
+   * @param {string} quotationContractAddress
    * @return {{ v: number, r: string, s: string }}
    */
-  static signQuote (quote) {
+  static signQuote (quote, quotationContractAddress) {
+    const currency = '0x' + Buffer.from(quotationData.coverCurrency, 'utf8').toString('hex');
+    const orderParts = [
+      { value: bigNumberToBN(quotationData.coverAmount), type: 'uint' },
+      { value: currency, type: 'bytes4' },
+      { value: bigNumberToBN(quotationData.coverPeriod), type: 'uint16' },
+      { value: quotationData.contractAddress, type: 'address' },
+      { value: bigNumberToBN(quotationData.priceCoverCurrency.toFixed()), type: 'uint' },
+      { value: bigNumberToBN(quotationData.priceNxm.toFixed()), type: 'uint' },
+      { value: bigNumberToBN(quotationData.expireTime), type: 'uint' },
+      { value: bigNumberToBN(quotationData.generationTime), type: 'uint' },
+      { value: quotationContractAddress, type: 'address' },
+    ];
+
+    const types = orderParts.map(o => o.type);
+    const values = orderParts.map(o => o.value);
+    const message = ethABI.soliditySHA3(types, values);
+    const msgHash = util.hashPersonalMessage(message);
+    const privateKey = Buffer.from('45571723d6f6fa704623beb284eda724459d76cc68e82b754015d6e7af794cc8', 'hex');
+    const sig = util.ecsign(msgHash, privateKey);
     return {
-      v: 28,
-      r: '0xdeadbeef',
-      s: '0xdeadbeef',
+      v: sig.v,
+      r: sig.r,
+      s: sig.s
     };
   }
 
@@ -258,5 +284,10 @@ class QuoteEngine {
     return apiKey !== null;
   }
 }
+
+function bigNumberToBN (value) {
+  return new BN(value.round().toString());
+}
+
 
 module.exports = QuoteEngine;
