@@ -36,5 +36,5 @@ module.exports = {
   wrap,
   min,
   max,
-  hex
+  hex,
 };

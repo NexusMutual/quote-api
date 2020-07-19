@@ -5,11 +5,9 @@ const utils = require('./utils');
 const { hex } = require('./utils');
 const BN = require('bn.js');
 
-
 const DAYS_PER_YEAR = '365.25';
 const CONTRACT_CAPACITY_LIMIT_PERCENT = '0.2';
 const COVER_PRICE_SURPLUS_MARGIN = '0.3';
-
 
 class QuoteEngine {
   /**
@@ -123,7 +121,7 @@ class QuoteEngine {
    * @param {string} quotationContractAddress
    * @return {{ v: number, r: string, s: string }}
    */
-  static signQuote (quote, quotationContractAddress, privateKeyString) {
+  static signQuote (quotationData, quotationContractAddress, privateKeyString) {
     const currency = '0x' + Buffer.from(quotationData.coverCurrency, 'utf8').toString('hex');
     const orderParts = [
       { value: bigNumberToBN(quotationData.coverAmount), type: 'uint' },
@@ -146,7 +144,7 @@ class QuoteEngine {
     return {
       v: sig.v,
       r: sig.r,
-      s: sig.s
+      s: sig.s,
     };
   }
 
@@ -220,14 +218,14 @@ class QuoteEngine {
     };
   }
 
-  static computeRisk(stakedNxm) {
+  static computeRisk (stakedNxm) {
     const STAKED_HIGH_RISK_COST = Big(100);
     const LOW_RISK_COST_LIMIT_NXM = Big(2e5);
     const PRICING_EXPONENT = Big(7);
     const STAKED_LOW_RISK_COST = Big(1);
     // uncappedRiskCost = stakedHighRiskCost * [1 - netStakedNXM/lowRiskCostLimit ^ (1/pricingExponent) ];
     const exponent = Big(1).div(PRICING_EXPONENT);
-    let uncappedRiskCost = STAKED_HIGH_RISK_COST.mul(Big(1).sub(stakedNxm.div(LOW_RISK_COST_LIMIT_NXM).pow(exponent)));
+    const uncappedRiskCost = STAKED_HIGH_RISK_COST.mul(Big(1).sub(stakedNxm.div(LOW_RISK_COST_LIMIT_NXM).pow(exponent)));
     const riskCost = utils.max(STAKED_LOW_RISK_COST, uncappedRiskCost);
     return riskCost;
   }
@@ -272,6 +270,5 @@ class QuoteEngine {
 function bigNumberToBN (value) {
   return new BN(value.round().toString());
 }
-
 
 module.exports = QuoteEngine;

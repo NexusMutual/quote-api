@@ -60,7 +60,6 @@ module.exports = quoteEngine => {
   return app;
 };
 
-
 async function isOriginAllowed (origin, apiKey) {
 
   if (/\.nexusmutual\.io$/.test(origin)) {

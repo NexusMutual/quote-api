@@ -8,7 +8,7 @@ const log = require('./log');
 const {
   MONGO_URL,
   PORT,
-  PRIVATE_KEY
+  PRIVATE_KEY,
 } = process.env;
 
 async function startServer (app, port) {
