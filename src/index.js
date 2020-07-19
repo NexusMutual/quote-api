@@ -7,6 +7,7 @@ const routes = require('./routes');
 const {
   MONGO_URL,
   PORT,
+  PRIVATE_KEY
 } = process.env;
 
 async function startServer (app, port) {
@@ -23,7 +24,7 @@ async function init () {
   const nexusContractLoader = new NexusContractLoader();
   await nexusContractLoader.init();
 
-  const quoteEngine = new QuoteEngine(nexusContractLoader);
+  const quoteEngine = new QuoteEngine(nexusContractLoader, PRIVATE_KEY);
   console.log(`Quote engine listening on port ${PORT}`);
   const app = routes(quoteEngine);
   await startServer(app, PORT);

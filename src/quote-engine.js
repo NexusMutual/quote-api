@@ -124,7 +124,7 @@ class QuoteEngine {
    * @param {string} quotationContractAddress
    * @return {{ v: number, r: string, s: string }}
    */
-  static signQuote (quote, quotationContractAddress) {
+  static signQuote (quote, quotationContractAddress, privateKeyString) {
     const currency = '0x' + Buffer.from(quotationData.coverCurrency, 'utf8').toString('hex');
     const orderParts = [
       { value: bigNumberToBN(quotationData.coverAmount), type: 'uint' },
@@ -142,7 +142,7 @@ class QuoteEngine {
     const values = orderParts.map(o => o.value);
     const message = ethABI.soliditySHA3(types, values);
     const msgHash = util.hashPersonalMessage(message);
-    const privateKey = Buffer.from('45571723d6f6fa704623beb284eda724459d76cc68e82b754015d6e7af794cc8', 'hex');
+    const privateKey = Buffer.from(privateKeyString, 'hex');
     const sig = util.ecsign(msgHash, privateKey);
     return {
       v: sig.v,
@@ -261,7 +261,7 @@ class QuoteEngine {
       now,
     );
     const unsignedQuote = { ...quoteData, coverCurrency: currency, contractAddress };
-    const signature = QuoteEngine.signQuote(unsignedQuote);
+    const signature = QuoteEngine.signQuote(unsignedQuote, this.privateKey);
 
     return {
       ...unsignedQuote,
