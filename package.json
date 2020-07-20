@@ -5,9 +5,10 @@
   "main": "src/index.js",
   "dependencies": {
     "axios": "^0.19.2",
-    "big.js": "^5.2.2",
     "bn.js": "^4.11.8",
+    "decimal.js": "^10.2.0",
     "dotenv": "^8.2.0",
+    "ethereumjs-abi": "^0.6.8",
     "express": "^4.17.1",
     "mongodb": "^3.5.2",
     "mongoose": "^5.8.9",

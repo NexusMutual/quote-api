@@ -1,4 +1,4 @@
-const Big = require('big.js');
+const Decimal = require('decimal.js');
 const ethABI = require('ethereumjs-abi');
 const util = require('ethereumjs-util');
 const utils = require('./utils');
@@ -8,6 +8,8 @@ const BN = require('bn.js');
 const DAYS_PER_YEAR = '365.25';
 const CONTRACT_CAPACITY_LIMIT_PERCENT = '0.2';
 const COVER_PRICE_SURPLUS_MARGIN = '0.3';
+
+
 
 class QuoteEngine {
   /**
@@ -22,13 +24,13 @@ class QuoteEngine {
   /**
    * Min [Staked NXM x NXM PriceETH, maxCapacityPerContract]
    *
-   * @param {Big} stakedNxm
-   * @param {Big} nxmPriceEth
-   * @param {Big} maxCapacityPerContract
-   * @return {Big}
+   * @param {Decimal} stakedNxm
+   * @param {Decimal} nxmPriceEth
+   * @param {Decimal} maxCapacityPerContract
+   * @return {Decimal}
    */
   static calculateCapacity (stakedNxm, nxmPriceEth, maxCapacityPerContract) {
-    const stakedNxmEthValue = Big(stakedNxm).mul(nxmPriceEth);
+    const stakedNxmEthValue = Decimal(stakedNxm).mul(nxmPriceEth);
     return utils.min(stakedNxmEthValue, maxCapacityPerContract);
   }
 
@@ -37,14 +39,14 @@ class QuoteEngine {
    *
    * Cover Amount x Staked Risk Cost x (1 + Surplus Margin) x Cover Period in Days / 365.25
    *
-   * @param {Big} coverAmount
+   * @param {Decimal} coverAmount
    * @param {string} risk A number between 0 and 1
    * @param {string} surplusMargin A number to calculate the multiplier (ex 0.3 for 30%)
    * @param {number} coverPeriod Cover period in days (integer)
-   * @return {Big}
+   * @return {Decimal}
    */
   static calculatePrice (coverAmount, risk, surplusMargin, coverPeriod) {
-    const surplusMultiplier = Big(surplusMargin).add(1);
+    const surplusMultiplier = Decimal(surplusMargin).add(1);
     const pricePerDay = coverAmount
       .mul(risk)
       .mul(surplusMultiplier)
@@ -57,7 +59,7 @@ class QuoteEngine {
    * Fetches total staked NXM on a smart contract
    *
    * @param {string} contractAddress
-   * @return {Big} Staked NXM amount as big.js instance
+   * @return {Decimal} Staked NXM amount as big.js instance
    */
   async getStakedNxm (contractAddress) {
     const pooledStaking = this.nexusContractLoader.instance('PS');
@@ -68,18 +70,18 @@ class QuoteEngine {
   /**
    * Fetches NXM token price in ETH
    *
-   * @return {Big}
+   * @return {Decimal}
    */
   async getTokenPrice () {
     const tokenFunctions = this.nexusContractLoader.instance('TF');
     const price = await tokenFunctions.getTokenPrice(hex('ETH'));
-    return Big(price);
+    return Decimal(price);
   }
 
   /**
    * Fetches mcrEther from last posted MCR
    *
-   * @return {Big}
+   * @return {Decimal}
    */
   async getLastMcrEth () {
     const poolData = this.nexusContractLoader.instance('PD');
@@ -89,18 +91,18 @@ class QuoteEngine {
 
   /**
    * Fetches DAI price in wei from Chainlink
-   * @return {Big}
+   * @return {Decimal}
    */
   async getDaiRate () {
     const chainlinkAggregator = this.nexusContractLoader.instance('CHAINLINK-DAI-ETH');
     const daiRate = await chainlinkAggregator.latestAnswer().call();
-    return Big(daiRate);
+    return Decimal(daiRate);
   }
 
   /**
    * Returns amount of ether wei for 1 currency unit
    * @param {string} currency
-   * @return {Promise<string|Big>}
+   * @return {Promise<string|Decimal>}
    */
   async getCurrencyRate (currency) {
 
@@ -149,13 +151,13 @@ class QuoteEngine {
   }
 
   /**
-   * @param {Big} requestedCoverAmount Amount user wants to cover in cover currency, ex: 100
+   * @param {Decimal} requestedCoverAmount Amount user wants to cover in cover currency, ex: 100
    * @param {number} coverPeriod Cover period in days
    * @param {String} coverCurrency Ex: "ETH" or "DAI"
-   * @param {Big} coverCurrencyRate Amount of wei for 1 cover currency unit
-   * @param {Big} nxmPrice Amount of wei for 1 NXM
-   * @param {Big} stakedNxm
-   * @param {Big} minCapETH
+   * @param {Decimal} coverCurrencyRate Amount of wei for 1 cover currency unit
+   * @param {Decimal} nxmPrice Amount of wei for 1 NXM
+   * @param {Decimal} stakedNxm
+   * @param {Decimal} minCapETH
    * @param {Date} now
    *
    * @typedef {{
@@ -170,14 +172,14 @@ class QuoteEngine {
    *     expireTime: number,
    *     coverCurrency: string,
    *     coverPeriod: number,
-   *     coverAmount: Big,
-   *     priceCoverCurrency: Big,
-   *     priceNxm: Big,
+   *     coverAmount: Decimal,
+   *     priceCoverCurrency: Decimal,
+   *     priceNxm: Decimal,
    * }} QuoteCoverable
    *
    * @return {QuoteCoverable|QuoteUncoverable|null}
    */
-  static computeQuote (
+  static calculateQuote (
     requestedCoverAmount,
     coverPeriod,
     coverCurrency,
@@ -197,7 +199,7 @@ class QuoteEngine {
     // limit cover amount by maxCapacity
     const finalCoverAmountInWei = utils.min(maxCapacity, requestedCoverAmountInWei);
 
-    const risk = this.computeRisk(stakedNxm, finalCoverAmountInWei, maxGlobalCapacityPerContract);
+    const risk = this.calculateRisk(stakedNxm, finalCoverAmountInWei, maxGlobalCapacityPerContract);
 
     const surplusMargin = COVER_PRICE_SURPLUS_MARGIN;
     const quotePriceInWei = QuoteEngine.calculatePrice(finalCoverAmountInWei, risk, surplusMargin, coverPeriod);
@@ -209,23 +211,23 @@ class QuoteEngine {
     return {
       coverCurrency,
       coverPeriod,
-      coverAmount: finalCoverInCoverCurrency.toFixed(0),
-      priceCoverCurrency: quotePriceInCoverCurrencyWei.toFixed(6),
-      priceNxm: quotePriceInNxmWei.toFixed(0),
+      coverAmount: finalCoverInCoverCurrency,
+      priceCoverCurrency: quotePriceInCoverCurrencyWei,
+      priceNxm: quotePriceInNxmWei,
       reason: 'ok',
       expireTime,
       generationTime,
     };
   }
 
-  static computeRisk (stakedNxm) {
-    const STAKED_HIGH_RISK_COST = Big(100);
-    const LOW_RISK_COST_LIMIT_NXM = Big(2e5);
-    const PRICING_EXPONENT = Big(7);
-    const STAKED_LOW_RISK_COST = Big(1);
+  static calculateRisk (stakedNxm) {
+    const STAKED_HIGH_RISK_COST = Decimal(100);
+    const LOW_RISK_COST_LIMIT_NXM = Decimal(2e5);
+    const PRICING_EXPONENT = Decimal(7);
+    const STAKED_LOW_RISK_COST = Decimal(1);
     // uncappedRiskCost = stakedHighRiskCost * [1 - netStakedNXM/lowRiskCostLimit ^ (1/pricingExponent) ];
-    const exponent = Big(1).div(PRICING_EXPONENT);
-    const uncappedRiskCost = STAKED_HIGH_RISK_COST.mul(Big(1).sub(stakedNxm.div(LOW_RISK_COST_LIMIT_NXM).pow(exponent)));
+    const exponent = Decimal(1).div(PRICING_EXPONENT);
+    const uncappedRiskCost = STAKED_HIGH_RISK_COST.mul(Decimal(1).sub(stakedNxm.div(LOW_RISK_COST_LIMIT_NXM).pow(exponent)));
     const riskCost = utils.max(STAKED_LOW_RISK_COST, uncappedRiskCost);
     return riskCost;
   }
@@ -238,7 +240,7 @@ class QuoteEngine {
    * @return {object|null}
    */
   async getQuote (contractAddress, coverAmount, currency, reqPeriod) {
-    const amount = Big(coverAmount);
+    const amount = Decimal(coverAmount);
     const period = parseInt(reqPeriod, 10);
     const now = new Date();
     const currencyRate = await this.getCurrencyRate(currency); // ETH amount for 1 unit of the currency
@@ -247,7 +249,7 @@ class QuoteEngine {
     const stakedNxm = await this.getStakedNxm(contractAddress);
     const minCapETH = await this.getLastMcrEth();
 
-    const quoteData = QuoteEngine.computeQuote(
+    const quoteData = QuoteEngine.calculateQuote(
       amount,
       period,
       currency,
