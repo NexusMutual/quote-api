@@ -1,6 +1,5 @@
 const assert = require('assert');
 const Decimal = require('decimal.js');
-const ObjectID = require('mongodb').ObjectID;
 
 const QuoteEngine = require('../../src/quote-engine');
 

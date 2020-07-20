@@ -39,7 +39,7 @@ async function init () {
   await mongoose.connect(MONGO_URL, opts);
 
   log.info('Initializing NexusContractLoader..');
-  const nexusContractLoader = new NexusContractLoader(NETWORK, VERSION_DATA_URL,  web3.eth.currentProvider);
+  const nexusContractLoader = new NexusContractLoader(NETWORK, VERSION_DATA_URL, web3.eth.currentProvider);
   await nexusContractLoader.init();
 
   const quoteEngine = new QuoteEngine(nexusContractLoader, PRIVATE_KEY);

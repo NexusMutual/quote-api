@@ -29,7 +29,7 @@ class QuoteEngine {
    * @return {Decimal}
    */
   static calculateCapacity (stakedNxm, nxmPriceEth, maxCapacityPerContract) {
-    const stakedNxmEthValue = Decimal(stakedNxm).mul(nxmPriceEth);
+    const stakedNxmEthValue = Decimal(stakedNxm).mul(nxmPriceEth).div('1e18');
     return utils.min(stakedNxmEthValue, maxCapacityPerContract);
   }
 
@@ -200,7 +200,6 @@ class QuoteEngine {
     const finalCoverAmountInWei = utils.min(maxCapacity, requestedCoverAmountInWei);
 
     const risk = this.calculateRisk(stakedNxm);
-    console.log(`risk ${risk.toFixed()}`);
 
     const surplusMargin = COVER_PRICE_SURPLUS_MARGIN;
     const quotePriceInWei = QuoteEngine.calculatePrice(finalCoverAmountInWei, risk, surplusMargin, coverPeriod);
@@ -237,12 +236,19 @@ class QuoteEngine {
    * @param {string} contractAddress
    * @param {string} coverAmount Requested cover amount (might differ from offered cover amount)
    * @param {string} currency
-   * @param {string} reqPeriod
+   * @param {string} period
    * @return {object|null}
    */
-  async getQuote (contractAddress, coverAmount, currency, reqPeriod) {
+  async getQuote (contractAddress, coverAmount, currency, period) {
+    const { valid, error } = this.validateQuoteParameters(contractAddress, coverAmount, currency, period);
+    if (!valid) {
+      throw new Error(`Invalid parameters provided: ${error}`);
+    }
+    currency = currency.toUpperCase();
+    contractAddress = contractAddress.toLowerCase();
+    period = parseInt(period);
+
     const amount = Decimal(coverAmount);
-    const period = parseInt(reqPeriod, 10);
     const now = new Date();
     const currencyRate = await this.getCurrencyRate(currency); // ETH amount for 1 unit of the currency
     const nxmPrice = await this.getTokenPrice(); // ETH amount for 1 unit of the currency
@@ -273,17 +279,69 @@ class QuoteEngine {
     log.info(`quoteData result: ${JSON.stringify()}`);
 
     const unsignedQuote = { ...quoteData, coverCurrency: currency, contractAddress };
-    const signature = QuoteEngine.signQuote(unsignedQuote, this.privateKey);
+    log.info(`Signing quote..`);
+    const quotationAddress = this.nexusContractLoader.instance('QT').address;
+    const signature = QuoteEngine.signQuote(unsignedQuote, quotationAddress, this.privateKey);
 
     return {
       ...unsignedQuote,
       ...signature,
     };
   }
+
+  static validateQuoteParameters (contractAddress, coverAmount, currency, period) {
+    if (!isValidEthereumAddress(contractAddress)) {
+      return {
+        valid: false,
+        error: `Contract address ${contractAddress} is invalid.`,
+      };
+    }
+
+    let amount;
+    try {
+      amount = Decimal(coverAmount);
+    } catch (e) {
+      return {
+        valid: false,
+        error: `Cover amount ${coverAmount} is invalid.`,
+      };
+    }
+    if (amount.lt(0) || !amount.floor().eq(amount)) {
+      return {
+        valid: false,
+        error: `Cover amount ${coverAmount} is invalid.`,
+      };
+    }
+
+    const SUPPORTED_CURRENCIES = ['ETH', 'DAI'];
+    if (!currency || !SUPPORTED_CURRENCIES.includes(currency.toUpperCase())) {
+      return {
+        valid: false,
+        error: `Currency ${currency} is invalid. Use one of ${JSON.stringify(SUPPORTED_CURRENCIES)}.`,
+      };
+    }
+
+    const parsedPeriod = parseInt(period);
+    const MIN_PERIOD = 30;
+    const MAX_PERIOD = 365;
+    if (isNaN(parsedPeriod) || parsedPeriod < MIN_PERIOD || parsedPeriod > MAX_PERIOD) {
+      return {
+        valid: false,
+        error: `Period ${period} is invalid. Provide an integer value in days between ${MIN_PERIOD} and ${MAX_PERIOD}.`,
+      };
+    }
+
+    return { valid: true };
+  }
 }
 
 function bigNumberToBN (value) {
   return new BN(value.round().toString());
+}
+
+function isValidEthereumAddress (address) {
+  const ETHEREUM_ADDRESS_REGEX = /^0(x|X)[a-fA-F0-9]{40}$/;
+  return address && address.length === 42 && address.match(ETHEREUM_ADDRESS_REGEX);
 }
 
 module.exports = QuoteEngine;

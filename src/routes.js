@@ -27,7 +27,7 @@ module.exports = quoteEngine => {
     next();
   });
 
-  app.get('/quotes', asyncRoute(async (req, res) => {
+  app.get('/quote', asyncRoute(async (req, res) => {
     const origin = req.get('origin');
     const apiKey = req.headers['x-api-key'];
     const isAllowed = await isOriginAllowed(origin, apiKey);
@@ -38,16 +38,29 @@ module.exports = quoteEngine => {
         message: 'Origin not allowed. Contact us for an API key',
       });
     }
-
-    const coverAmount = parseInt(req.query.coverAmount);
+    const coverAmount = req.query.coverAmount;
     const currency = req.query.currency;
-    const period = parseInt(req.query.period);
+    const period = req.query.period;
     const contractAddress = req.query.contractAddress;
 
-    const quote = await quoteEngine.getQuote(
-      contractAddress.toLowerCase(),
+    const { valid, error } = quoteEngine.validateQuoteParameters(
+      contractAddress,
       coverAmount,
-      currency.toUpperCase(),
+      currency,
+      period,
+    );
+    if (!valid) {
+      log.error(`Invalid parameters provided: ${error}`);
+      return res.status(400).send({
+        error: true,
+        message: error,
+      });
+    }
+
+    const quote = await quoteEngine.getQuote(
+      contractAddress,
+      coverAmount,
+      currency,
       period,
     );
 
