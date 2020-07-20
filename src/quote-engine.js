@@ -10,7 +10,6 @@ const CONTRACT_CAPACITY_LIMIT_PERCENT = '0.2';
 const COVER_PRICE_SURPLUS_MARGIN = '0.3';
 
 
-
 class QuoteEngine {
   /**
    * @param {Etherscan} etherscan
