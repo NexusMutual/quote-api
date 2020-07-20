@@ -49,6 +49,7 @@ class QuoteEngine {
     const surplusMultiplier = Decimal(surplusMargin).add(1);
     const pricePerDay = coverAmount
       .mul(risk)
+      .div(100)
       .mul(surplusMultiplier)
       .div(DAYS_PER_YEAR);
 
@@ -192,14 +193,15 @@ class QuoteEngine {
     const generationTime = now.getTime();
     const expireTime = Math.ceil(generationTime / 1000 + 3600);
 
-    const maxGlobalCapacityPerContract = minCapETH.mul(CONTRACT_CAPACITY_LIMIT_PERCENT).mul('1e18'); // in wei
+    const maxGlobalCapacityPerContract = minCapETH.mul(CONTRACT_CAPACITY_LIMIT_PERCENT);
     const maxCapacity = QuoteEngine.calculateCapacity(stakedNxm, nxmPrice, maxGlobalCapacityPerContract);
 
     const requestedCoverAmountInWei = requestedCoverAmount.mul(coverCurrencyRate);
     // limit cover amount by maxCapacity
     const finalCoverAmountInWei = utils.min(maxCapacity, requestedCoverAmountInWei);
 
-    const risk = this.calculateRisk(stakedNxm, finalCoverAmountInWei, maxGlobalCapacityPerContract);
+    const risk = this.calculateRisk(stakedNxm);
+    console.log(`risk ${risk.toFixed()}`);
 
     const surplusMargin = COVER_PRICE_SURPLUS_MARGIN;
     const quotePriceInWei = QuoteEngine.calculatePrice(finalCoverAmountInWei, risk, surplusMargin, coverPeriod);
@@ -222,7 +224,7 @@ class QuoteEngine {
 
   static calculateRisk (stakedNxm) {
     const STAKED_HIGH_RISK_COST = Decimal(100);
-    const LOW_RISK_COST_LIMIT_NXM = Decimal(2e5);
+    const LOW_RISK_COST_LIMIT_NXM = Decimal(200000).mul('1e18');
     const PRICING_EXPONENT = Decimal(7);
     const STAKED_LOW_RISK_COST = Decimal(1);
     // uncappedRiskCost = stakedHighRiskCost * [1 - netStakedNXM/lowRiskCostLimit ^ (1/pricingExponent) ];
@@ -249,6 +251,16 @@ class QuoteEngine {
     const stakedNxm = await this.getStakedNxm(contractAddress);
     const minCapETH = await this.getLastMcrEth();
 
+    log.info(`Calculating quote with params ${JSON.stringify({
+      amount,
+      period,
+      currency,
+      currencyRate,
+      nxmPrice,
+      stakedNxm,
+      minCapETH,
+      now,
+    })}`);
     const quoteData = QuoteEngine.calculateQuote(
       amount,
       period,
@@ -259,6 +271,8 @@ class QuoteEngine {
       minCapETH,
       now,
     );
+    log.info(`quoteData result: ${JSON.stringify()}`);
+
     const unsignedQuote = { ...quoteData, coverCurrency: currency, contractAddress };
     const signature = QuoteEngine.signQuote(unsignedQuote, this.privateKey);
 
