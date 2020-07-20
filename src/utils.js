@@ -7,7 +7,7 @@ function wrap (text, length) {
 
 /**
  * Returns the minimum of two numbers
- * Input can be big.js instance, string, or number
+ * Input can be decimal.js instance, string, or number
  * @param {(Decimal|string|number)} a
  * @param {(Decimal|string|number)} b
  * @return {Decimal}
@@ -19,7 +19,7 @@ function min (a, b) {
 }
 
 /**
- * Returns maximum of two big.js numbers
+ * Returns maximum of two decimal.js numbers
  * @param {(Decimal|string|number)} a
  * @param {(Decimal|string|number)} b
  * @return {Decimal}

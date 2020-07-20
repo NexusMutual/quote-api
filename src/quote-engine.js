@@ -59,7 +59,7 @@ class QuoteEngine {
    * Fetches total staked NXM on a smart contract
    *
    * @param {string} contractAddress
-   * @return {Decimal} Staked NXM amount as big.js instance
+   * @return {Decimal} Staked NXM amount as decimal.js instance
    */
   async getStakedNxm (contractAddress) {
     const pooledStaking = this.nexusContractLoader.instance('PS');
