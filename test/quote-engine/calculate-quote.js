@@ -4,7 +4,7 @@ const ObjectID = require('mongodb').ObjectID;
 
 const QuoteEngine = require('../../src/quote-engine');
 
-function to2Decimals(weiValue) {
+function to2Decimals (weiValue) {
   return weiValue.div('1e18').toDecimalPlaces(2).toFixed();
 }
 
@@ -56,7 +56,7 @@ describe('calculateQuote()', function () {
     const currencyRate = Decimal('1e18');
     const currency = 'ETH';
 
-    function assertETHAndNXMPrices(amount, period, stakedNxm, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered) {
+    function assertETHAndNXMPrices (amount, period, stakedNxm, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered) {
 
       const quoteData = QuoteEngine.calculateQuote(
         amount, period, currency, currencyRate,
@@ -64,15 +64,15 @@ describe('calculateQuote()', function () {
       );
       assert.equal(
         to2Decimals(quoteData.priceCoverCurrency),
-        to2Decimals(expectedPriceInETH)
+        to2Decimals(expectedPriceInETH),
       );
       assert.equal(
         to2Decimals(quoteData.priceNxm),
-        to2Decimals(expectedPriceInNXM)
+        to2Decimals(expectedPriceInNXM),
       );
       assert.equal(
         to2Decimals(quoteData.coverAmount),
-        to2Decimals(expectedCoverAmountOffered)
+        to2Decimals(expectedCoverAmountOffered),
       );
     }
 
@@ -94,7 +94,7 @@ describe('calculateQuote()', function () {
       const expectedPriceInNXM = Decimal('47.68').mul('1e18');
       const expectedCoverAmountOffered = amount;
       assertETHAndNXMPrices(amount, period, stakedNxm, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered);
-    })
+    });
 
     it('returns the cover price in ETH and NXM for 5000 cover exceeding global capacity', function () {
       const amount = Decimal('5000');
@@ -117,7 +117,7 @@ describe('calculateQuote()', function () {
     const currencyRate = Decimal('1e18').div(ethDAIRate);
     const currency = 'DAI';
 
-    function assertETHAndNXMPrices(amount, period, stakedNxm, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered) {
+    function assertETHAndNXMPrices (amount, period, stakedNxm, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered) {
 
       const quoteData = QuoteEngine.calculateQuote(
         amount, period, currency, currencyRate,
@@ -125,15 +125,15 @@ describe('calculateQuote()', function () {
       );
       assert.equal(
         to2Decimals(quoteData.priceCoverCurrency),
-        to2Decimals(expectedPriceInETH)
+        to2Decimals(expectedPriceInETH),
       );
       assert.equal(
         to2Decimals(quoteData.priceNxm),
-        to2Decimals(expectedPriceInNXM)
+        to2Decimals(expectedPriceInNXM),
       );
       assert.equal(
         to2Decimals(quoteData.coverAmount),
-        to2Decimals(expectedCoverAmountOffered)
+        to2Decimals(expectedCoverAmountOffered),
       );
     }
 

@@ -1,14 +1,14 @@
 const Decimal = require('decimal.js');
 const ethABI = require('ethereumjs-abi');
 const util = require('ethereumjs-util');
+const BN = require('bn.js');
 const utils = require('./utils');
 const { hex } = require('./utils');
-const BN = require('bn.js');
+const log = require('./log');
 
 const DAYS_PER_YEAR = '365.25';
 const CONTRACT_CAPACITY_LIMIT_PERCENT = '0.2';
 const COVER_PRICE_SURPLUS_MARGIN = '0.3';
-
 
 class QuoteEngine {
   /**
