@@ -1,5 +1,6 @@
 const NodeCache = require('node-cache');
 const axios = require('axios');
+const log = require('./log');
 
 const cache = new NodeCache({ stdTTL: 60, checkperiod: 120 });
 
@@ -16,8 +17,8 @@ async function getWhitelist () {
         whitelist.push(address.toLowerCase());
       }
     }
-
     cache.set(WHITELIST_KEY, whitelist);
+    log.info(`Fetched and cached whitelist of length: ${whitelist.length}`);
   }
   return whitelist;
 }

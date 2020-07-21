@@ -2,6 +2,7 @@ const express = require('express');
 const ApiKey = require('./models/api-key');
 const log = require('./log');
 const QuoteEngine = require('./quote-engine');
+const { getWhitelist } = require('./contract-whitelist');
 
 const asyncRoute = route => (req, res) => {
   route(req, res).catch(e => {
@@ -53,6 +54,15 @@ module.exports = quoteEngine => {
     );
     if (!valid) {
       log.error(`Invalid parameters provided: ${error}`);
+      return res.status(400).send({
+        error: true,
+        message: error,
+      });
+    }
+    const whitelist = await getWhitelist();
+    if (!whitelist.includes(contractAddress.toLowerCase())) {
+      const message = `Contract ${contractAddress} not on whitelist: ${error}`;
+      log.error(message);
       return res.status(400).send({
         error: true,
         message: error,
