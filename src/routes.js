@@ -143,7 +143,7 @@ function toLegacyFormatResponse (r) {
     generationTime: r.generatedAt,
     v: r.v,
     r: r.r,
-    s: s.s
+    s: r.s
   };
 
   if (!r.error) {
