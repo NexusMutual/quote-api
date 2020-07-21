@@ -131,7 +131,7 @@ async function isOriginAllowed (origin, apiKey) {
   return apiKey !== null;
 }
 
-function toLegacyFormatResponse(r) {
+function toLegacyFormatResponse (r) {
   const legacyResponse = {
     coverCurr: r.currency,
     coverPeriod: r.period,
@@ -140,7 +140,10 @@ function toLegacyFormatResponse(r) {
     coverCurrPrice: r.price,
     PriceNxm: r.priceInNXM,
     expireTime: r.expiresAt,
-    generationTime: r.generatedAt
+    generationTime: r.generatedAt,
+    v: r.v,
+    r: r.r,
+    s: s.s
   };
 
   if (!r.error) {

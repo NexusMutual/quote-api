@@ -48,7 +48,7 @@ describe('GET quotes', function () {
       console.log(body);
     });
 
-    it('responds with 400 for a non-whitelisted contract',  async function () {
+    it('responds with 400 for a non-whitelisted contract', async function () {
       const coverAmount = '1000';
       const currency = 'ETH';
       const period = 100;

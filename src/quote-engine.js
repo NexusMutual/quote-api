@@ -145,8 +145,8 @@ class QuoteEngine {
     const sig = util.ecsign(msgHash, privateKey);
     return {
       v: sig.v,
-      r: sig.r,
-      s: sig.s,
+      r: util.fromSigned(sig.r).toString('hex'),
+      s: util.fromSigned(sig.s).toString('hex'),
     };
   }
 
@@ -195,7 +195,7 @@ class QuoteEngine {
       return {
         error: 'uncoverable',
         generatedAt,
-        expiresAt
+        expiresAt,
       };
     }
 
