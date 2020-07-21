@@ -145,8 +145,8 @@ class QuoteEngine {
     const sig = util.ecsign(msgHash, privateKey);
     return {
       v: sig.v,
-      r: util.fromSigned(sig.r).toString('hex'),
-      s: util.fromSigned(sig.s).toString('hex'),
+      r: '0x' + util.toUnsigned(util.fromSigned(sig.r)).toString('hex'),
+      s: '0x' + util.toUnsigned(util.fromSigned(sig.s)).toString('hex')
     };
   }
 
