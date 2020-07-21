@@ -23,6 +23,7 @@ class NexusContractLoader {
 
     this.loader = setupLoader({
       provider: this.provider,
+      defaultGas: 6e6, // 1 million
     }).truffle;
   }
 
