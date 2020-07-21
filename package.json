@@ -15,7 +15,6 @@
     "mongodb": "^3.5.2",
     "mongoose": "^5.8.9",
     "node-cache": "^5.1.2",
-    "node-fetch": "^2.6.0",
     "web3": "^1.2.11",
     "winston": "^3.3.3"
   },

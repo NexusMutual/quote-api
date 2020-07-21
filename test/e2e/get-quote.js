@@ -29,11 +29,12 @@ describe('GET /v1/quote', function () {
     const coverAmount = '1000';
     const currency = 'ETH';
     const period = 100;
-    const contractAddress = '0x4Ddc2D193948926D02f9B1fE9e1daa0718270ED5'; // Compound
+    const contractAddress = '0x86969d29F5fd327E1009bA66072BE22DB6017cC6'; // Compound
 
     const { status, body } = await request(app).get(
       `/v1/quote?coverAmount=${coverAmount}&currency=${currency}&period=${period}&contractAddress=${contractAddress}`,
     );
     assert.equal(status, 200);
+    console.log(body);
   });
 });
