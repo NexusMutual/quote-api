@@ -29,7 +29,7 @@ describe('GET /v1/quote', function () {
     const coverAmount = '1000';
     const currency = 'ETH';
     const period = 100;
-    const contractAddress = '0x86969d29F5fd327E1009bA66072BE22DB6017cC6'; // Compound
+    const contractAddress = '0x86969d29F5fd327E1009bA66072BE22DB6017cC6';
 
     const { status, body } = await request(app).get(
       `/v1/quote?coverAmount=${coverAmount}&currency=${currency}&period=${period}&contractAddress=${contractAddress}`,
@@ -37,4 +37,16 @@ describe('GET /v1/quote', function () {
     assert.equal(status, 200);
     console.log(body);
   });
+
+  it('responds with 400 for a non-whitelisted contract',  async function () {
+    const coverAmount = '1000';
+    const currency = 'ETH';
+    const period = 100;
+    const contractAddress = '0xd7c49cee7e9188cca6ad8ff264c1da2e69d4cf3b'; // NXM Token
+
+    const { status } = await request(app).get(
+      `/v1/quote?coverAmount=${coverAmount}&currency=${currency}&period=${period}&contractAddress=${contractAddress}`,
+    );
+    assert.equal(status, 400);
+  })
 });
