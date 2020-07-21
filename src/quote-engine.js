@@ -64,7 +64,7 @@ class QuoteEngine {
   async getStakedNxm (contractAddress) {
     const pooledStaking = this.nexusContractLoader.instance('PS');
     const staked = await pooledStaking.contractStake(contractAddress);
-    return staked;
+    return Decimal(staked.toString());
   }
 
   /**
@@ -75,7 +75,7 @@ class QuoteEngine {
   async getTokenPrice () {
     const tokenFunctions = this.nexusContractLoader.instance('TF');
     const price = await tokenFunctions.getTokenPrice(hex('ETH'));
-    return Decimal(price);
+    return Decimal(price.toString());
   }
 
   /**
@@ -86,7 +86,7 @@ class QuoteEngine {
   async getLastMcrEth () {
     const poolData = this.nexusContractLoader.instance('PD');
     const mcrEth = await poolData.getLastMCREther();
-    return mcrEth;
+    return Decimal(mcrEth.toString());
   }
 
   /**
@@ -96,7 +96,7 @@ class QuoteEngine {
   async getDaiRate () {
     const chainlinkAggregator = this.nexusContractLoader.instance('CHAINLINK-DAI-ETH');
     const daiRate = await chainlinkAggregator.latestAnswer().call();
-    return Decimal(daiRate);
+    return Decimal(daiRate.toString());
   }
 
   /**
@@ -126,14 +126,14 @@ class QuoteEngine {
   static signQuote (quotationData, quotationContractAddress, privateKeyString) {
     const currency = '0x' + Buffer.from(quotationData.coverCurrency, 'utf8').toString('hex');
     const orderParts = [
-      { value: bigNumberToBN(quotationData.coverAmount), type: 'uint' },
+      { value: decimalToBN(quotationData.coverAmount), type: 'uint' },
       { value: currency, type: 'bytes4' },
-      { value: bigNumberToBN(quotationData.coverPeriod), type: 'uint16' },
+      { value: new BN(quotationData.coverPeriod), type: 'uint16' },
       { value: quotationData.contractAddress, type: 'address' },
-      { value: bigNumberToBN(quotationData.priceCoverCurrency.toFixed()), type: 'uint' },
-      { value: bigNumberToBN(quotationData.priceNxm.toFixed()), type: 'uint' },
-      { value: bigNumberToBN(quotationData.expireTime), type: 'uint' },
-      { value: bigNumberToBN(quotationData.generationTime), type: 'uint' },
+      { value: decimalToBN(quotationData.priceCoverCurrency), type: 'uint' },
+      { value: decimalToBN(quotationData.priceNxm), type: 'uint' },
+      { value: new BN(quotationData.expireTime), type: 'uint' },
+      { value: new BN(quotationData.generationTime), type: 'uint' },
       { value: quotationContractAddress, type: 'address' },
     ];
 
@@ -276,7 +276,7 @@ class QuoteEngine {
       minCapETH,
       now,
     );
-    log.info(`quoteData result: ${JSON.stringify()}`);
+    log.info(`quoteData result: ${JSON.stringify(quoteData)}`);
 
     const unsignedQuote = { ...quoteData, coverCurrency: currency, contractAddress };
     log.info(`Signing quote..`);
@@ -335,8 +335,8 @@ class QuoteEngine {
   }
 }
 
-function bigNumberToBN (value) {
-  return new BN(value.round().toString());
+function decimalToBN (value) {
+  return new BN(value.floor().toString());
 }
 
 function isValidEthereumAddress (address) {
