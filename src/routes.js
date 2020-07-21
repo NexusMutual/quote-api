@@ -1,6 +1,7 @@
 const express = require('express');
 const ApiKey = require('./models/api-key');
 const log = require('./log');
+const QuoteEngine = require('./quote-engine');
 
 const asyncRoute = route => (req, res) => {
   route(req, res).catch(e => {
@@ -27,10 +28,10 @@ module.exports = quoteEngine => {
     next();
   });
 
-  app.get('/quote', asyncRoute(async (req, res) => {
+  app.get('/v1/quote', asyncRoute(async (req, res) => {
     const origin = req.get('origin');
     const apiKey = req.headers['x-api-key'];
-    const isAllowed = await isOriginAllowed(origin, apiKey);
+    const isAllowed = true; // await isOriginAllowed(origin, apiKey);
 
     if (!isAllowed) {
       return res.status(403).send({
@@ -43,7 +44,7 @@ module.exports = quoteEngine => {
     const period = req.query.period;
     const contractAddress = req.query.contractAddress;
 
-    const { valid, error } = quoteEngine.validateQuoteParameters(
+    const { valid, error } = QuoteEngine.validateQuoteParameters(
       contractAddress,
       coverAmount,
       currency,

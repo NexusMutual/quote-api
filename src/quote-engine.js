@@ -240,7 +240,7 @@ class QuoteEngine {
    * @return {object|null}
    */
   async getQuote (contractAddress, coverAmount, currency, period) {
-    const { valid, error } = this.validateQuoteParameters(contractAddress, coverAmount, currency, period);
+    const { valid, error } = QuoteEngine.validateQuoteParameters(contractAddress, coverAmount, currency, period);
     if (!valid) {
       throw new Error(`Invalid parameters provided: ${error}`);
     }

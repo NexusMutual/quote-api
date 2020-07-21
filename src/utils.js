@@ -32,9 +32,21 @@ function max (a, b) {
 
 const hex = string => '0x' + Buffer.from(string).toString('hex');
 
+function getEnv (key, fallback = false) {
+
+  const value = process.env[key] || fallback;
+
+  if (!value) {
+    throw new Error(`Missing env var: ${key}`);
+  }
+
+  return value;
+}
+
 module.exports = {
   wrap,
   min,
   max,
   hex,
+  getEnv
 };
