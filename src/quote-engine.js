@@ -124,16 +124,16 @@ class QuoteEngine {
    * @return {{ v: number, r: string, s: string }}
    */
   static signQuote (quotationData, quotationContractAddress, privateKeyString) {
-    const currency = '0x' + Buffer.from(quotationData.coverCurrency, 'utf8').toString('hex');
+    const currency = '0x' + Buffer.from(quotationData.currency, 'utf8').toString('hex');
     const orderParts = [
-      { value: decimalToBN(quotationData.coverAmount), type: 'uint' },
+      { value: decimalToBN(quotationData.amount), type: 'uint' },
       { value: currency, type: 'bytes4' },
-      { value: new BN(quotationData.coverPeriod), type: 'uint16' },
-      { value: quotationData.contractAddress, type: 'address' },
-      { value: decimalToBN(quotationData.priceCoverCurrency), type: 'uint' },
-      { value: decimalToBN(quotationData.priceNxm), type: 'uint' },
-      { value: new BN(quotationData.expireTime), type: 'uint' },
-      { value: new BN(quotationData.generationTime), type: 'uint' },
+      { value: new BN(quotationData.period), type: 'uint16' },
+      { value: quotationData.contract, type: 'address' },
+      { value: decimalToBN(quotationData.price), type: 'uint' },
+      { value: decimalToBN(quotationData.priceInNXM), type: 'uint' },
+      { value: new BN(quotationData.expiresAt), type: 'uint' },
+      { value: new BN(quotationData.generatedAt), type: 'uint' },
       { value: quotationContractAddress, type: 'address' },
     ];
 
@@ -152,8 +152,8 @@ class QuoteEngine {
 
   /**
    * @param {Decimal} requestedCoverAmount Amount user wants to cover in cover currency, ex: 100
-   * @param {number} coverPeriod Cover period in days
-   * @param {String} coverCurrency Ex: "ETH" or "DAI"
+   * @param {number} period Cover period in days
+   * @param {String} currency Ex: "ETH" or "DAI"
    * @param {Decimal} coverCurrencyRate Amount of wei for 1 cover currency unit
    * @param {Decimal} nxmPrice Amount of wei for 1 NXM
    * @param {Decimal} stakedNxm
@@ -161,36 +161,43 @@ class QuoteEngine {
    * @param {Date} now
    *
    * @typedef {{
-   *   reason: string,
-   *   generationTime: number,
-   *   expireTime: number,
+   *   error: string,
+   *     generatedAt: number,
+   *     expiresAt: number,
    * }} QuoteUncoverable
    *
    * @typedef {{
-   *     reason: string,
-   *     generationTime: number,
-   *     expireTime: number,
-   *     coverCurrency: string,
-   *     coverPeriod: number,
-   *     coverAmount: Decimal,
-   *     priceCoverCurrency: Decimal,
-   *     priceNxm: Decimal,
+   *     generatedAt: number,
+   *     expiresAt: number,
+   *     currency: string,
+   *     period: number,
+   *     amount: Decimal,
+   *     price: Decimal,
+   *     princeInNXM: Decimal,
    * }} QuoteCoverable
    *
    * @return {QuoteCoverable|QuoteUncoverable|null}
    */
   static calculateQuote (
     requestedCoverAmount,
-    coverPeriod,
-    coverCurrency,
+    period,
+    currency,
     coverCurrencyRate,
     nxmPrice,
     stakedNxm,
     minCapETH,
     now,
   ) {
-    const generationTime = now.getTime();
-    const expireTime = Math.ceil(generationTime / 1000 + 3600);
+    const generatedAt = now.getTime();
+    const expiresAt = Math.ceil(generatedAt / 1000 + 3600);
+
+    if (stakedNxm.eq(0)) {
+      return {
+        error: 'uncoverable',
+        generatedAt,
+        expiresAt
+      };
+    }
 
     const maxGlobalCapacityPerContract = minCapETH.mul(CONTRACT_CAPACITY_LIMIT_PERCENT);
     const maxCapacity = QuoteEngine.calculateCapacity(stakedNxm, nxmPrice, maxGlobalCapacityPerContract);
@@ -202,21 +209,20 @@ class QuoteEngine {
     const risk = this.calculateRisk(stakedNxm);
 
     const surplusMargin = COVER_PRICE_SURPLUS_MARGIN;
-    const quotePriceInWei = QuoteEngine.calculatePrice(finalCoverAmountInWei, risk, surplusMargin, coverPeriod);
+    const quotePriceInWei = QuoteEngine.calculatePrice(finalCoverAmountInWei, risk, surplusMargin, period);
 
     const quotePriceInCoverCurrencyWei = quotePriceInWei.div(coverCurrencyRate).mul('1e18');
     const quotePriceInNxmWei = quotePriceInWei.div(nxmPrice).mul('1e18');
     const finalCoverInCoverCurrency = finalCoverAmountInWei.div(coverCurrencyRate);
 
     return {
-      coverCurrency,
-      coverPeriod,
-      coverAmount: finalCoverInCoverCurrency,
-      priceCoverCurrency: quotePriceInCoverCurrencyWei,
-      priceNxm: quotePriceInNxmWei,
-      reason: 'ok',
-      expireTime,
-      generationTime,
+      currency,
+      period,
+      amount: finalCoverInCoverCurrency,
+      price: quotePriceInCoverCurrencyWei,
+      priceInNXM: quotePriceInNxmWei,
+      expiresAt,
+      generatedAt,
     };
   }
 
@@ -278,7 +284,7 @@ class QuoteEngine {
     );
     log.info(`quoteData result: ${JSON.stringify(quoteData)}`);
 
-    const unsignedQuote = { ...quoteData, coverCurrency: currency, contractAddress };
+    const unsignedQuote = { ...quoteData, contract: contractAddress };
     log.info(`Signing quote..`);
     const quotationAddress = this.nexusContractLoader.instance('QT').address;
     const signature = QuoteEngine.signQuote(unsignedQuote, quotationAddress, this.privateKey);

@@ -82,6 +82,37 @@ module.exports = quoteEngine => {
     res.send(quote);
   }));
 
+  /**
+   * legacy endpoint.
+   */
+  app.get('/getQuote/:coverAmount/:currency/:period/:contractAddress/:version', asyncRoute(async (req, res) => {
+
+    const origin = req.get('origin');
+    const apiKey = req.headers['x-api-key'];
+    const isAllowed = true; // await isOriginAllowed(origin, apiKey);
+
+    if (!isAllowed) {
+      return res.status(403).send({
+        error: true,
+        message: 'Origin not allowed. Contact us for an API key',
+      });
+    }
+
+    const { contractAddress, coverAmount, currency, period } = req.params;
+    const quote = await quoteEngine.getQuote(
+      contractAddress,
+      coverAmount,
+      currency,
+      period,
+    );
+
+    if (quote === null) {
+      return res.send({ error: true, message: 'Unable to create cover on the specified contract' });
+    }
+
+    res.send(toLegacyFormatResponse(quote));
+  }));
+
   return app;
 };
 
@@ -98,4 +129,23 @@ async function isOriginAllowed (origin, apiKey) {
   apiKey = await ApiKey.findOne({ origin, apiKey });
 
   return apiKey !== null;
+}
+
+function toLegacyFormatResponse(r) {
+  const legacyResponse = {
+    coverCurr: r.currency,
+    coverPeriod: r.period,
+    smartCA: r.contract,
+    coverAmount: r.amount,
+    coverCurrPrice: r.price,
+    PriceNxm: r.priceInNXM,
+    expireTime: r.expiresAt,
+    generationTime: r.generatedAt
+  };
+
+  if (!r.error) {
+    legacyResponse.reason = 'ok';
+  }
+
+  return legacyResponse;
 }
