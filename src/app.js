@@ -7,7 +7,7 @@ const routes = require('./routes');
 const log = require('./log');
 const { getEnv } = require('./utils');
 
-async function initApp() {
+async function initApp () {
   const PROVIDER_URL = getEnv('PROVIDER_URL');
   const VERSION_DATA_URL = getEnv('VERSION_DATA_URL');
   const PRIVATE_KEY = getEnv('PRIVATE_KEY');
@@ -31,7 +31,6 @@ async function initApp() {
   return app;
 }
 
-
 module.exports = {
-  initApp
-}
+  initApp,
+};

@@ -31,8 +31,8 @@ describe('GET /v1/quote', function () {
     const period = 100;
     const contractAddress = '0x4Ddc2D193948926D02f9B1fE9e1daa0718270ED5'; // Compound
 
-    const { status, body } =await request(app).get(
-      `/v1/quote?coverAmount=${coverAmount}&currency=${currency}&period=${period}&contractAddress=${contractAddress}`
+    const { status, body } = await request(app).get(
+      `/v1/quote?coverAmount=${coverAmount}&currency=${currency}&period=${period}&contractAddress=${contractAddress}`,
     );
     assert.equal(status, 200);
   });

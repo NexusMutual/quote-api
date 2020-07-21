@@ -1,4 +1,4 @@
-const NodeCache = require( "node-cache" );
+const NodeCache = require('node-cache');
 const axios = require('axios');
 
 const cache = new NodeCache({ stdTTL: 60, checkperiod: 120 });
@@ -8,7 +8,7 @@ const WHITELIST_KEY = 'whitelist';
 async function getWhitelist () {
 
   let whitelist = cache.get(WHITELIST_KEY);
-  if (whitelist == undefined) {
+  if (!whitelist) {
     whitelist = [];
     const { data } = await axios.get('https://api.nexusmutual.io/coverables/contracts.json');
     for (const address of Object.keys(data)) {
@@ -23,5 +23,5 @@ async function getWhitelist () {
 }
 
 module.exports = {
-  getWhitelist
+  getWhitelist,
 };

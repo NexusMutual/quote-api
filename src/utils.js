@@ -48,5 +48,5 @@ module.exports = {
   min,
   max,
   hex,
-  getEnv
+  getEnv,
 };
