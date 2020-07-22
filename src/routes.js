@@ -1,8 +1,10 @@
 const express = require('express');
+const uuid = require('uuid');
 const ApiKey = require('./models/api-key');
 const log = require('./log');
 const QuoteEngine = require('./quote-engine');
 const { getWhitelist } = require('./contract-whitelist');
+const httpContext = require('express-http-context');
 
 const asyncRoute = route => (req, res) => {
   route(req, res).catch(e => {
@@ -21,6 +23,14 @@ const asyncRoute = route => (req, res) => {
 module.exports = quoteEngine => {
 
   const app = express();
+
+  // use context for request id logging.
+  app.use(httpContext.middleware);
+  // Run the context for each request. Assign a unique identifier to each request
+  app.use((req, res, next) => {
+    httpContext.set('reqId', uuid.v1())
+    next()
+  })
 
   app.use((req, res, next) => {
     log.info(`${req.method} ${req.originalUrl}`);
