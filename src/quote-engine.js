@@ -30,7 +30,7 @@ class QuoteEngine {
    * @return {Decimal}
    */
   static calculateCapacity (stakedNxm, nxmPriceEth, maxCapacityPerContract) {
-    const stakedNxmEthValue = Decimal(stakedNxm).mul(nxmPriceEth).div('1e18');
+    const stakedNxmEthValue = stakedNxm.mul(nxmPriceEth).div('1e18');
     return utils.min(stakedNxmEthValue, maxCapacityPerContract);
   }
 
@@ -68,15 +68,29 @@ class QuoteEngine {
     return Decimal(staked.toString());
   }
 
+  /**
+   * Fetches total net staked NXM on a smart contract at timestamp 'now'
+   *
+   * @param {string} contractAddress
+   * @param {number} now
+   * @return {Decimal} Net Staked NXM amount as decimal.js instance
+   */
   async getNetStakedNxm (contractAddress, now) {
     const [stakedNxm, pendingUnstake] = await Promise.all([
       this.getStakedNxm(contractAddress),
-      this.getPendingUnstake(contractAddress, now),
+      this.getPendingUnstaked(contractAddress, now),
     ]);
     return stakedNxm.sub(pendingUnstake);
   }
 
-  async getPendingUnstake (contractAddress, now) {
+  /**
+   * Fetches total pending unstaked NXM on a smart contract at timestamp 'now'
+   *
+   * @param {string} contractAddress
+   * @param {number} now
+   * @return {Decimal} Pending unstaked NXM amount as decimal.js instance
+   */
+  async getPendingUnstaked (contractAddress, now) {
     const ASSUMED_BLOCK_TIME = 10;
     const blocksBack = 90 * 24 * 60 * 60 / ASSUMED_BLOCK_TIME;
     const block = await this.web3.eth.getBlock('latest');
@@ -143,8 +157,9 @@ class QuoteEngine {
 
   /**
    *
-   * @param {object} quote
+   * @param {object} quotationData
    * @param {string} quotationContractAddress
+   * @param {string} privateKeyString
    * @return {{ v: number, r: string, s: string }}
    */
   static signQuote (quotationData, quotationContractAddress, privateKeyString) {
@@ -250,6 +265,12 @@ class QuoteEngine {
     };
   }
 
+  /**
+   * Calculates risk percentage as a value between 1 and 100
+   *
+   * @param {Decimal} netStakedNxm
+   * @return {Decimal} risk percentage
+   */
   static calculateRisk (netStakedNxm) {
     const STAKED_HIGH_RISK_COST = Decimal(100);
     const LOW_RISK_COST_LIMIT_NXM = Decimal(200000).mul('1e18');
@@ -257,7 +278,9 @@ class QuoteEngine {
     const STAKED_LOW_RISK_COST = Decimal(1);
     // uncappedRiskCost = stakedHighRiskCost * [1 - netStakedNXM/lowRiskCostLimit ^ (1/pricingExponent) ];
     const exponent = Decimal(1).div(PRICING_EXPONENT);
-    const uncappedRiskCost = STAKED_HIGH_RISK_COST.mul(Decimal(1).sub(netStakedNxm.div(LOW_RISK_COST_LIMIT_NXM).pow(exponent)));
+    const uncappedRiskCost = STAKED_HIGH_RISK_COST
+      .mul(Decimal(1).sub(netStakedNxm.div(LOW_RISK_COST_LIMIT_NXM).pow(exponent)));
+
     const riskCost = utils.max(STAKED_LOW_RISK_COST, uncappedRiskCost);
     return riskCost;
   }
