@@ -57,30 +57,35 @@ class QuoteEngine {
   }
 
   /**
-   * Fetches total staked NXM on a smart contract
-   *
-   * @param {string} contractAddress
-   * @return {Decimal} Staked NXM amount as decimal.js instance
-   */
-  async getStakedNxm (contractAddress) {
-    const pooledStaking = this.nexusContractLoader.instance('PS');
-    const staked = await pooledStaking.contractStake(contractAddress);
-    return Decimal(staked.toString());
-  }
-
-  /**
    * Fetches total net staked NXM on a smart contract at timestamp 'now'
    *
    * @param {string} contractAddress
    * @param {number} now
    * @return {Decimal} Net Staked NXM amount as decimal.js instance
    */
-  async getNetStakedNxm (contractAddress, now) {
-    const [stakedNxm, pendingUnstake] = await Promise.all([
-      this.getStakedNxm(contractAddress),
-      this.getPendingUnstaked(contractAddress, now),
+  async getNetStakedNxm (contractAddress) {
+    const pooledStaking = this.nexusContractLoader.instance('PS');
+    const [stakedNxmBN, firstUnprocessedUnstake, unstakeRequests] = await Promise.all([
+      pooledStaking.contractStake(contractAddress),
+      this.getFirstUnprocessedUnstake(pooledStaking),
+      this.getUnstakeRequests(contractAddress)
     ]);
-    return stakedNxm.sub(pendingUnstake);
+    const stakedNxm = Decimal(stakedNxmBN.toString());
+    const totalUnprocessedUnstake = Decimal(unstakeRequests
+      .filter(e => e.unstakeAt.toNumber() >= firstUnprocessedUnstake.unstakeAt.toNumber())
+      .map(e => e.amount)
+      .reduce((a, b) => a.add(b), new BN('0'))
+      .toString()
+    );
+
+    const netStakedNxm = stakedNxm.sub(totalUnprocessedUnstake);
+    return netStakedNxm;
+  }
+
+  async getFirstUnprocessedUnstake(pooledStaking) {
+    const headPointer = await pooledStaking.unstakeRequests(0);
+    const firstUnprocessed = await pooledStaking.unstakeRequests(headPointer.next);
+    return firstUnprocessed;
   }
 
   /**
@@ -90,19 +95,17 @@ class QuoteEngine {
    * @param {number} now
    * @return {Decimal} Pending unstaked NXM amount as decimal.js instance
    */
-  async getPendingUnstaked (contractAddress, now) {
+  async getUnstakeRequests (contractAddress) {
     const ASSUMED_BLOCK_TIME = 10;
-    const blocksBack = 90 * 24 * 60 * 60 / ASSUMED_BLOCK_TIME;
+    const UNSTAKE_PROCESSING_DAYS = 90;
+    const BUFFER_DAYS = 10;
+    const DAY_IN_SECONDS = 24 * 60 * 60;
+    const blocksBack = (UNSTAKE_PROCESSING_DAYS + BUFFER_DAYS) * DAY_IN_SECONDS / ASSUMED_BLOCK_TIME;
     const block = await this.web3.eth.getBlock('latest');
     const fromBlock = block.number - blocksBack;
     const pooledStaking = this.nexusContractLoader.instance('PS');
     const events = await pooledStaking.getPastEvents('UnstakeRequested', { fromBlock, filter: { contractAddress } });
-    const totalPendingUnstake = events
-      .map(e => e.args)
-      .filter(e => e.unstakeAt.toNumber() > now / 1000)
-      .map(e => e.amount)
-      .reduce((a, b) => a.add(b), new BN('0'));
-    return new Decimal(totalPendingUnstake.toString());
+    return events.map(e => e.args);
   }
 
   /**

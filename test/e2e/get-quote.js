@@ -39,7 +39,7 @@ describe('GET quotes', function () {
       const coverAmount = '1000';
       const currency = 'ETH';
       const period = 100;
-      const contractAddress = '0x86969d29F5fd327E1009bA66072BE22DB6017cC6';
+      const contractAddress = '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B';
 
       const { status, body } = await request(app)
         .get(
@@ -77,7 +77,7 @@ describe('GET quotes', function () {
       const coverAmount = '1000';
       const currency = 'ETH';
       const period = 100;
-      const contractAddress = '0x86969d29F5fd327E1009bA66072BE22DB6017cC6';
+      const contractAddress = '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B';
 
       const { status, body } = await request(app)
         .get(`/getQuote/${coverAmount}/${currency}/${period}/${contractAddress}/M1`)
