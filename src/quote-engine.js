@@ -68,7 +68,7 @@ class QuoteEngine {
     return Decimal(staked.toString());
   }
 
-  async getNetStakedNxm(contractAddress, now) {
+  async getNetStakedNxm (contractAddress, now) {
     const [stakedNxm, pendingUnstake] = await Promise.all([
       this.getStakedNxm(contractAddress),
       this.getPendingUnstake(contractAddress, now),
@@ -76,7 +76,7 @@ class QuoteEngine {
     return stakedNxm.sub(pendingUnstake);
   }
 
-  async getPendingUnstake(contractAddress, now) {
+  async getPendingUnstake (contractAddress, now) {
     const ASSUMED_BLOCK_TIME = 10;
     const blocksBack = 90 * 24 * 60 * 60 / ASSUMED_BLOCK_TIME;
     const block = await this.web3.eth.getBlock('latest');
@@ -170,7 +170,7 @@ class QuoteEngine {
     return {
       v: sig.v,
       r: '0x' + util.toUnsigned(util.fromSigned(sig.r)).toString('hex'),
-      s: '0x' + util.toUnsigned(util.fromSigned(sig.s)).toString('hex')
+      s: '0x' + util.toUnsigned(util.fromSigned(sig.s)).toString('hex'),
     };
   }
 
@@ -274,22 +274,22 @@ class QuoteEngine {
     if (!valid) {
       throw new Error(`Invalid parameters provided: ${error}`);
     }
-    currency = currency.toUpperCase();
-    contractAddress = contractAddress.toLowerCase();
-    period = parseInt(period);
+    const upperCasedCurrency = currency.toUpperCase();
+    const lowerCasedContractAddress = contractAddress.toLowerCase();
+    const parsedPeriod = parseInt(period);
 
     const amount = Decimal(coverAmount);
     const now = new Date();
-    const currencyRate = await this.getCurrencyRate(currency); // ETH amount for 1 unit of the currency
+    const currencyRate = await this.getCurrencyRate(upperCasedCurrency); // ETH amount for 1 unit of the currency
     const nxmPrice = await this.getTokenPrice(); // ETH amount for 1 unit of the currency
 
-    const netStakedNxm = await this.getNetStakedNxm(contractAddress);
+    const netStakedNxm = await this.getNetStakedNxm(lowerCasedContractAddress);
     const minCapETH = await this.getLastMcrEth();
 
     log.info(`Calculating quote with params ${JSON.stringify({
       amount,
-      period,
-      currency,
+      period: parsedPeriod,
+      currency: upperCasedCurrency,
       currencyRate,
       nxmPrice,
       netStakedNxm,
@@ -298,8 +298,8 @@ class QuoteEngine {
     })}`);
     const quoteData = QuoteEngine.calculateQuote(
       amount,
-      period,
-      currency,
+      parsedPeriod,
+      upperCasedCurrency,
       currencyRate,
       nxmPrice,
       netStakedNxm,
@@ -308,7 +308,7 @@ class QuoteEngine {
     );
     log.info(`quoteData result: ${JSON.stringify(quoteData)}`);
 
-    const unsignedQuote = { ...quoteData, contract: contractAddress };
+    const unsignedQuote = { ...quoteData, contract: lowerCasedContractAddress };
     log.info(`Signing quote..`);
     const quotationAddress = this.nexusContractLoader.instance('QT').address;
     const signature = QuoteEngine.signQuote(unsignedQuote, quotationAddress, this.privateKey);

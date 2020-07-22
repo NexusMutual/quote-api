@@ -126,9 +126,9 @@ async function isOriginAllowed (origin, apiKey) {
     return false;
   }
 
-  apiKey = await ApiKey.findOne({ origin, apiKey });
+  const storedApiKey = await ApiKey.findOne({ origin, apiKey });
 
-  return apiKey !== null;
+  return storedApiKey !== null;
 }
 
 function toLegacyFormatResponse (r) {
@@ -143,7 +143,7 @@ function toLegacyFormatResponse (r) {
     generationTime: r.generatedAt,
     v: r.v,
     r: r.r,
-    s: r.s
+    s: r.s,
   };
 
   if (!r.error) {

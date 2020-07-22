@@ -13,7 +13,7 @@ async function getWhitelist () {
     whitelist = [];
     const { data } = await axios.get('https://api.nexusmutual.io/coverables/contracts.json');
     for (const address of Object.keys(data)) {
-      if (!data[address].disabled) {
+      if (!data[address].deprecated) {
         whitelist.push(address.toLowerCase());
       }
     }
