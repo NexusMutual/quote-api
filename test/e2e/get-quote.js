@@ -3,6 +3,7 @@ const assert = require('assert');
 const Decimal = require('decimal.js');
 const request = require('supertest');
 const { initApp } = require('../../src/app');
+const { ApiKey } = require('../../src/models');
 
 const MongoMemoryServer = require('mongodb-memory-server').MongoMemoryServer;
 const mongoose = require('mongoose');
@@ -13,15 +14,22 @@ describe('GET quotes', function () {
 
   this.timeout(300000);
   let app;
+  const API_KEY = 'my_magical_key';
+  const ORIGIN = 'my_magical_origin';
   before(async function () {
 
     const mongod = new MongoMemoryServer();
     const uri = await mongod.getUri();
+    const opts = { useNewUrlParser: true, useUnifiedTopology: true };
+    await mongoose.connect(uri, opts);
+
     process.env.PROVIDER_URL = 'https://parity.nexusmutual.io';
     process.env.VERSION_DATA_URL = 'https://api.nexusmutual.io/version-data/data.json';
     process.env.NETWORK = 'mainnet';
     process.env.PRIVATE_KEY = '45571723d6f6fa704623beb284eda724459d76cc68e82b754015d6e7af794cc8';
     process.env.MONGO_URL = uri;
+
+    await ApiKey.create({ apiKey: API_KEY, origin: ORIGIN });
     app = await initApp();
     await new Promise(resolve => app.listen(PORT, resolve));
   });
@@ -33,9 +41,10 @@ describe('GET quotes', function () {
       const period = 100;
       const contractAddress = '0x86969d29F5fd327E1009bA66072BE22DB6017cC6';
 
-      const { status, body } = await request(app).get(
-        `/v1/quote?coverAmount=${coverAmount}&currency=${currency}&period=${period}&contractAddress=${contractAddress}`,
-      );
+      const { status, body } = await request(app)
+        .get(
+        `/v1/quote?coverAmount=${coverAmount}&currency=${currency}&period=${period}&contractAddress=${contractAddress}`)
+        .set({ 'x-api-key': API_KEY, 'origin': ORIGIN});
       assert.equal(status, 200);
       assert.equal(body.currency, 'ETH');
       assert.equal(body.amount, coverAmount);
@@ -54,9 +63,11 @@ describe('GET quotes', function () {
       const period = 100;
       const contractAddress = '0xd7c49cee7e9188cca6ad8ff264c1da2e69d4cf3b'; // NXM Token
 
-      const { status } = await request(app).get(
+      const { status } = await request(app)
+        .get(
         `/v1/quote?coverAmount=${coverAmount}&currency=${currency}&period=${period}&contractAddress=${contractAddress}`,
-      );
+      )
+        .set({ 'x-api-key': API_KEY, 'origin': ORIGIN});;
       assert.equal(status, 400);
     });
   });
@@ -68,9 +79,9 @@ describe('GET quotes', function () {
       const period = 100;
       const contractAddress = '0x86969d29F5fd327E1009bA66072BE22DB6017cC6';
 
-      const { status, body } = await request(app).get(
-        `/getQuote/${coverAmount}/${currency}/${period}/${contractAddress}/M1`,
-      );
+      const { status, body } = await request(app)
+        .get(`/getQuote/${coverAmount}/${currency}/${period}/${contractAddress}/M1`)
+        .set({ 'x-api-key': API_KEY, 'origin': ORIGIN});
 
       assert.equal(status, 200);
       assert.equal(body.coverCurr, 'ETH');

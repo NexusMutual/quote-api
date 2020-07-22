@@ -32,8 +32,7 @@ module.exports = quoteEngine => {
   app.get('/v1/quote', asyncRoute(async (req, res) => {
     const origin = req.get('origin');
     const apiKey = req.headers['x-api-key'];
-    // TODO: re-enable this !!
-    const isAllowed = true; // await isOriginAllowed(origin, apiKey);
+    const isAllowed = await isOriginAllowed(origin, apiKey);
 
     if (!isAllowed) {
       return res.status(403).send({
@@ -89,7 +88,7 @@ module.exports = quoteEngine => {
 
     const origin = req.get('origin');
     const apiKey = req.headers['x-api-key'];
-    const isAllowed = true; // await isOriginAllowed(origin, apiKey);
+    const isAllowed = await isOriginAllowed(origin, apiKey);
 
     if (!isAllowed) {
       return res.status(403).send({
