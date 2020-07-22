@@ -114,6 +114,8 @@ describe('calculateQuote()', function () {
         nxmPrice, stakedNxm, minCapETH, now,
       );
       assert.equal(quoteData.error, 'Uncoverable');
+      assert.strictEqual(now.getTime(), quoteData.generatedAt);
+      assert.strictEqual(Math.ceil(now.getTime() / 1000 + 3600), quoteData.expiresAt);
     });
   });
 

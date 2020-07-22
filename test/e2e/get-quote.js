@@ -43,8 +43,8 @@ describe('GET quotes', function () {
 
       const { status, body } = await request(app)
         .get(
-        `/v1/quote?coverAmount=${coverAmount}&currency=${currency}&period=${period}&contractAddress=${contractAddress}`)
-        .set({ 'x-api-key': API_KEY, 'origin': ORIGIN});
+          `/v1/quote?coverAmount=${coverAmount}&currency=${currency}&period=${period}&contractAddress=${contractAddress}`)
+        .set({ 'x-api-key': API_KEY, origin: ORIGIN });
       assert.equal(status, 200);
       assert.equal(body.currency, 'ETH');
       assert.equal(body.amount, coverAmount);
@@ -65,9 +65,9 @@ describe('GET quotes', function () {
 
       const { status } = await request(app)
         .get(
-        `/v1/quote?coverAmount=${coverAmount}&currency=${currency}&period=${period}&contractAddress=${contractAddress}`,
-      )
-        .set({ 'x-api-key': API_KEY, 'origin': ORIGIN});;
+          `/v1/quote?coverAmount=${coverAmount}&currency=${currency}&period=${period}&contractAddress=${contractAddress}`,
+        )
+        .set({ 'x-api-key': API_KEY, origin: ORIGIN });
       assert.equal(status, 400);
     });
   });
@@ -81,7 +81,7 @@ describe('GET quotes', function () {
 
       const { status, body } = await request(app)
         .get(`/getQuote/${coverAmount}/${currency}/${period}/${contractAddress}/M1`)
-        .set({ 'x-api-key': API_KEY, 'origin': ORIGIN});
+        .set({ 'x-api-key': API_KEY, origin: ORIGIN });
 
       assert.equal(status, 200);
       assert.equal(body.coverCurr, 'ETH');

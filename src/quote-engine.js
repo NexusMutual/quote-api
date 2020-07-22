@@ -68,21 +68,21 @@ class QuoteEngine {
     const [stakedNxmBN, firstUnprocessedUnstake, unstakeRequests] = await Promise.all([
       pooledStaking.contractStake(contractAddress),
       this.getFirstUnprocessedUnstake(pooledStaking),
-      this.getUnstakeRequests(contractAddress)
+      this.getUnstakeRequests(contractAddress),
     ]);
     const stakedNxm = Decimal(stakedNxmBN.toString());
     const totalUnprocessedUnstake = Decimal(unstakeRequests
       .filter(e => e.unstakeAt.toNumber() >= firstUnprocessedUnstake.unstakeAt.toNumber())
       .map(e => e.amount)
       .reduce((a, b) => a.add(b), new BN('0'))
-      .toString()
+      .toString(),
     );
 
     const netStakedNxm = stakedNxm.sub(totalUnprocessedUnstake);
     return netStakedNxm;
   }
 
-  async getFirstUnprocessedUnstake(pooledStaking) {
+  async getFirstUnprocessedUnstake (pooledStaking) {
     const headPointer = await pooledStaking.unstakeRequests(0);
     const firstUnprocessed = await pooledStaking.unstakeRequests(headPointer.next);
     return firstUnprocessed;
