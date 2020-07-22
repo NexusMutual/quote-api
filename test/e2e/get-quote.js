@@ -71,13 +71,6 @@ describe('GET quotes', function () {
         .set({ 'x-api-key': API_KEY, origin: ORIGIN });
       assert.equal(status, 400);
     });
-
-    it('responds with 200 for all currently whitelisted contracts for ETH and DAI quotes', async function () {
-      const whitelist = getWhitelist();
-      for (const contractAddress of whitelist) {
-
-      }
-    });
   });
 
   describe('GET /getQuote', function () {
