@@ -60,7 +60,6 @@ class QuoteEngine {
    * Fetches total net staked NXM on a smart contract at timestamp 'now'
    *
    * @param {string} contractAddress
-   * @param {number} now
    * @return {Decimal} Net Staked NXM amount as decimal.js instance
    */
   async getNetStakedNxm (contractAddress) {
@@ -92,7 +91,6 @@ class QuoteEngine {
    * Fetches total pending unstaked NXM on a smart contract at timestamp 'now'
    *
    * @param {string} contractAddress
-   * @param {number} now
    * @return {Decimal} Pending unstaked NXM amount as decimal.js instance
    */
   async getUnstakeRequests (contractAddress) {
