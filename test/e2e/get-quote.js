@@ -4,6 +4,7 @@ const Decimal = require('decimal.js');
 const request = require('supertest');
 const { initApp } = require('../../src/app');
 const { ApiKey } = require('../../src/models');
+const { getWhitelist } = require('../../src/contract-whitelist');
 
 const MongoMemoryServer = require('mongodb-memory-server').MongoMemoryServer;
 const mongoose = require('mongoose');
@@ -69,6 +70,13 @@ describe('GET quotes', function () {
         )
         .set({ 'x-api-key': API_KEY, origin: ORIGIN });
       assert.equal(status, 400);
+    });
+
+    it('responds with 200 for all currently whitelisted contracts for ETH and DAI quotes', async function () {
+      const whitelist = getWhitelist();
+      for (const contractAddress of whitelist) {
+
+      }
     });
   });
 

@@ -28,9 +28,9 @@ module.exports = quoteEngine => {
   app.use(httpContext.middleware);
   // Run the context for each request. Assign a unique identifier to each request
   app.use((req, res, next) => {
-    httpContext.set('reqId', uuid.v1())
-    next()
-  })
+    httpContext.set('reqId', uuid.v1());
+    next();
+  });
 
   app.use((req, res, next) => {
     log.info(`${req.method} ${req.originalUrl}`);
