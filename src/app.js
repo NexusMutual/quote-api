@@ -26,7 +26,7 @@ async function initApp () {
   const nexusContractLoader = new NexusContractLoader(NETWORK, VERSION_DATA_URL, web3.eth.currentProvider);
   await nexusContractLoader.init();
 
-  const quoteEngine = new QuoteEngine(nexusContractLoader, PRIVATE_KEY);
+  const quoteEngine = new QuoteEngine(nexusContractLoader, PRIVATE_KEY, web3);
   const app = routes(quoteEngine);
   return app;
 }

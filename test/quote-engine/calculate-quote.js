@@ -25,23 +25,23 @@ describe('calculateQuote()', function () {
     );
 
     it('returns a cover amount less or equal to the requested amount', function () {
-      assert.strict(quoteData.coverAmount.lte(amount));
+      assert.strict(quoteData.amount.lte(amount));
     });
 
     it('returns a cover period equal to the requested period', function () {
-      assert.strictEqual(quoteData.coverPeriod, period, 'Returned cover period differs from requested period');
+      assert.strictEqual(quoteData.period, period, 'Returned cover period differs from requested period');
     });
 
     it('returns the same cover currency', function () {
-      assert.strictEqual(quoteData.coverCurrency, currency);
+      assert.strictEqual(quoteData.currency, currency);
     });
 
     it('returns correct generation time', function () {
-      assert.strictEqual(now.getTime(), quoteData.generationTime);
+      assert.strictEqual(now.getTime(), quoteData.generatedAt);
     });
 
     it('returns correct expiration time', function () {
-      assert.strictEqual(Math.ceil(now.getTime() / 1000 + 3600), quoteData.expireTime);
+      assert.strictEqual(Math.ceil(now.getTime() / 1000 + 3600), quoteData.expiresAt);
     });
   });
 
@@ -62,15 +62,15 @@ describe('calculateQuote()', function () {
         nxmPrice, stakedNxm, minCapETH, now,
       );
       assert.equal(
-        to2Decimals(quoteData.priceCoverCurrency),
+        to2Decimals(quoteData.price),
         to2Decimals(expectedPriceInETH),
       );
       assert.equal(
-        to2Decimals(quoteData.priceNxm),
+        to2Decimals(quoteData.priceInNXM),
         to2Decimals(expectedPriceInNXM),
       );
       assert.equal(
-        to2Decimals(quoteData.coverAmount),
+        to2Decimals(quoteData.amount),
         to2Decimals(expectedCoverAmountOffered),
       );
     }
@@ -123,15 +123,15 @@ describe('calculateQuote()', function () {
         nxmPrice, stakedNxm, minCapETH, now,
       );
       assert.equal(
-        to2Decimals(quoteData.priceCoverCurrency),
+        to2Decimals(quoteData.price),
         to2Decimals(expectedPriceInETH),
       );
       assert.equal(
-        to2Decimals(quoteData.priceNxm),
+        to2Decimals(quoteData.priceInNXM),
         to2Decimals(expectedPriceInNXM),
       );
       assert.equal(
-        to2Decimals(quoteData.coverAmount),
+        to2Decimals(quoteData.amount),
         to2Decimals(expectedCoverAmountOffered),
       );
     }

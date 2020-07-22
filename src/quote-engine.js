@@ -15,9 +15,10 @@ class QuoteEngine {
    * @param {Etherscan} etherscan
    * @param {VersionData} versionData
    */
-  constructor (nexusContractLoader, privateKey) {
+  constructor (nexusContractLoader, privateKey, web3) {
     this.nexusContractLoader = nexusContractLoader;
     this.privateKey = privateKey;
+    this.web3 = web3;
   }
 
   /**
@@ -65,6 +66,29 @@ class QuoteEngine {
     const pooledStaking = this.nexusContractLoader.instance('PS');
     const staked = await pooledStaking.contractStake(contractAddress);
     return Decimal(staked.toString());
+  }
+
+  async getNetStakedNxm(contractAddress, now) {
+    const [stakedNxm, pendingUnstake] = await Promise.all([
+      this.getStakedNxm(contractAddress),
+      this.getPendingUnstake(contractAddress, now),
+    ]);
+    return stakedNxm.sub(pendingUnstake);
+  }
+
+  async getPendingUnstake(contractAddress, now) {
+    const ASSUMED_BLOCK_TIME = 10;
+    const blocksBack = 90 * 24 * 60 * 60 / ASSUMED_BLOCK_TIME;
+    const block = await this.web3.eth.getBlock('latest');
+    const fromBlock = block.number - blocksBack;
+    const pooledStaking = this.nexusContractLoader.instance('PS');
+    const events = await pooledStaking.getPastEvents('UnstakeRequested', { fromBlock, filter: { contractAddress } });
+    const totalPendingUnstake = events
+      .map(e => e.args)
+      .filter(e => e.unstakeAt.toNumber() > now / 1000)
+      .map(e => e.amount)
+      .reduce((a, b) => a.add(b), new BN('0'));
+    return new Decimal(totalPendingUnstake.toString());
   }
 
   /**
@@ -156,7 +180,7 @@ class QuoteEngine {
    * @param {String} currency Ex: "ETH" or "DAI"
    * @param {Decimal} coverCurrencyRate Amount of wei for 1 cover currency unit
    * @param {Decimal} nxmPrice Amount of wei for 1 NXM
-   * @param {Decimal} stakedNxm
+   * @param {Decimal} netStakedNxm
    * @param {Decimal} minCapETH
    * @param {Date} now
    *
@@ -184,14 +208,14 @@ class QuoteEngine {
     currency,
     coverCurrencyRate,
     nxmPrice,
-    stakedNxm,
+    netStakedNxm,
     minCapETH,
     now,
   ) {
     const generatedAt = now.getTime();
     const expiresAt = Math.ceil(generatedAt / 1000 + 3600);
 
-    if (stakedNxm.eq(0)) {
+    if (netStakedNxm.eq(0)) {
       return {
         error: 'uncoverable',
         generatedAt,
@@ -200,13 +224,13 @@ class QuoteEngine {
     }
 
     const maxGlobalCapacityPerContract = minCapETH.mul(CONTRACT_CAPACITY_LIMIT_PERCENT);
-    const maxCapacity = QuoteEngine.calculateCapacity(stakedNxm, nxmPrice, maxGlobalCapacityPerContract);
+    const maxCapacity = QuoteEngine.calculateCapacity(netStakedNxm, nxmPrice, maxGlobalCapacityPerContract);
 
     const requestedCoverAmountInWei = requestedCoverAmount.mul(coverCurrencyRate);
     // limit cover amount by maxCapacity
     const finalCoverAmountInWei = utils.min(maxCapacity, requestedCoverAmountInWei);
 
-    const risk = this.calculateRisk(stakedNxm);
+    const risk = this.calculateRisk(netStakedNxm);
 
     const surplusMargin = COVER_PRICE_SURPLUS_MARGIN;
     const quotePriceInWei = QuoteEngine.calculatePrice(finalCoverAmountInWei, risk, surplusMargin, period);
@@ -226,14 +250,14 @@ class QuoteEngine {
     };
   }
 
-  static calculateRisk (stakedNxm) {
+  static calculateRisk (netStakedNxm) {
     const STAKED_HIGH_RISK_COST = Decimal(100);
     const LOW_RISK_COST_LIMIT_NXM = Decimal(200000).mul('1e18');
     const PRICING_EXPONENT = Decimal(7);
     const STAKED_LOW_RISK_COST = Decimal(1);
     // uncappedRiskCost = stakedHighRiskCost * [1 - netStakedNXM/lowRiskCostLimit ^ (1/pricingExponent) ];
     const exponent = Decimal(1).div(PRICING_EXPONENT);
-    const uncappedRiskCost = STAKED_HIGH_RISK_COST.mul(Decimal(1).sub(stakedNxm.div(LOW_RISK_COST_LIMIT_NXM).pow(exponent)));
+    const uncappedRiskCost = STAKED_HIGH_RISK_COST.mul(Decimal(1).sub(netStakedNxm.div(LOW_RISK_COST_LIMIT_NXM).pow(exponent)));
     const riskCost = utils.max(STAKED_LOW_RISK_COST, uncappedRiskCost);
     return riskCost;
   }
@@ -259,7 +283,7 @@ class QuoteEngine {
     const currencyRate = await this.getCurrencyRate(currency); // ETH amount for 1 unit of the currency
     const nxmPrice = await this.getTokenPrice(); // ETH amount for 1 unit of the currency
 
-    const stakedNxm = await this.getStakedNxm(contractAddress);
+    const netStakedNxm = await this.getNetStakedNxm(contractAddress);
     const minCapETH = await this.getLastMcrEth();
 
     log.info(`Calculating quote with params ${JSON.stringify({
@@ -268,7 +292,7 @@ class QuoteEngine {
       currency,
       currencyRate,
       nxmPrice,
-      stakedNxm,
+      netStakedNxm,
       minCapETH,
       now,
     })}`);
@@ -278,7 +302,7 @@ class QuoteEngine {
       currency,
       currencyRate,
       nxmPrice,
-      stakedNxm,
+      netStakedNxm,
       minCapETH,
       now,
     );
