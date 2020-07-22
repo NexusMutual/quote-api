@@ -88,7 +88,7 @@ module.exports = quoteEngine => {
     if (quote === null) {
       return res.status(400).send({ error: true, message: 'Unable to create cover on the specified contract' });
     }
-    res.send(quote);
+    res.send(prettyPrintResponse(quote));
   }));
 
   /**
@@ -119,7 +119,7 @@ module.exports = quoteEngine => {
       return res.send({ error: true, message: 'Unable to create cover on the specified contract' });
     }
 
-    res.send(toLegacyFormatResponse(quote));
+    res.send(toLegacyFormatResponse(prettyPrintResponse(quote)));
   }));
 
   return app;
@@ -160,4 +160,13 @@ function toLegacyFormatResponse (r) {
   }
 
   return legacyResponse;
+}
+
+function prettyPrintResponse (r) {
+  return {
+    ...r,
+    amount: r.amount.toFixed(),
+    price: r.price.toFixed(),
+    priceInNXM: r.priceInNXM.toFixed(),
+  };
 }

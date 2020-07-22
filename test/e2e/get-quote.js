@@ -2,13 +2,25 @@ require('dotenv').config();
 const assert = require('assert');
 const Decimal = require('decimal.js');
 const request = require('supertest');
+const axios = require('axios');
 const { initApp } = require('../../src/app');
 const { ApiKey } = require('../../src/models');
-const { getWhitelist } = require('../../src/contract-whitelist');
 
 const MongoMemoryServer = require('mongodb-memory-server').MongoMemoryServer;
 const mongoose = require('mongoose');
 mongoose.Promise = Promise;
+
+function chunk (arr, chunkSize) {
+  const chunks = [];
+  let i = 0;
+  const n = arr.length;
+
+  while (i < n) {
+    chunks.push(arr.slice(i, i + chunkSize));
+    i += chunkSize;
+  }
+  return chunks;
+}
 
 describe('GET quotes', function () {
   const PORT = 3000;
@@ -17,6 +29,15 @@ describe('GET quotes', function () {
   let app;
   const API_KEY = 'my_magical_key';
   const ORIGIN = 'my_magical_origin';
+
+  async function requestQuote (amount, currency, period, contractAddress) {
+    const response = await request(app)
+      .get(
+        `/v1/quote?coverAmount=${amount}&currency=${currency}&period=${period}&contractAddress=${contractAddress}`,
+      )
+      .set({ 'x-api-key': API_KEY, origin: ORIGIN });
+    return response;
+  }
   before(async function () {
 
     const mongod = new MongoMemoryServer();
@@ -42,10 +63,7 @@ describe('GET quotes', function () {
       const period = 100;
       const contractAddress = '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B';
 
-      const { status, body } = await request(app)
-        .get(
-          `/v1/quote?coverAmount=${coverAmount}&currency=${currency}&period=${period}&contractAddress=${contractAddress}`)
-        .set({ 'x-api-key': API_KEY, origin: ORIGIN });
+      const { status, body } = await requestQuote(coverAmount, currency, period, contractAddress);
       assert.equal(status, 200);
       assert.equal(body.currency, 'ETH');
       assert.equal(body.amount, coverAmount);
@@ -63,13 +81,41 @@ describe('GET quotes', function () {
       const currency = 'ETH';
       const period = 100;
       const contractAddress = '0xd7c49cee7e9188cca6ad8ff264c1da2e69d4cf3b'; // NXM Token
-
-      const { status } = await request(app)
-        .get(
-          `/v1/quote?coverAmount=${coverAmount}&currency=${currency}&period=${period}&contractAddress=${contractAddress}`,
-        )
-        .set({ 'x-api-key': API_KEY, origin: ORIGIN });
+      const { status } = await requestQuote(coverAmount, currency, period, contractAddress);
       assert.equal(status, 400);
+    });
+
+    it('responds with 200 for all currently whitelisted contracts for ETH and DAI quotes', async function () {
+      const whitelist = [];
+      const { data } = await axios.get('https://api.nexusmutual.io/coverables/contracts.json');
+      for (const address of Object.keys(data)) {
+        if (!data[address].deprecated) {
+          data[address] = { ...data[address], address };
+          whitelist.push(data[address]);
+        }
+      }
+      const ethCoverAmount = '100';
+      const daiCoverAmount = '23000';
+      const period = 100;
+
+      const chunks = chunk(whitelist, 10);
+      const results = [];
+      for (const chunk of chunks) {
+
+        await Promise.all(chunk.map(async contract => {
+          let { status, body } = await requestQuote(ethCoverAmount, 'ETH', period, contract.address);
+          assert.equal(status, 200, `Failed for ${JSON.stringify(contract)}`);
+          results.push({ ...body, ...contract });
+
+          const response = await requestQuote(daiCoverAmount, 'DAI', period, contract.address);
+          status = response.status;
+          body = response.body;
+          assert.equal(status, 200, `Failed for ${JSON.stringify(contract)}`);
+          results.push({ ...body, ...contract });
+        }));
+        break;
+      }
+      console.log(results);
     });
   });
 
