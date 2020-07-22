@@ -6,9 +6,9 @@ const utils = require('./utils');
 const { hex } = require('./utils');
 const log = require('./log');
 
-const DAYS_PER_YEAR = '365.25';
-const CONTRACT_CAPACITY_LIMIT_PERCENT = '0.2';
-const COVER_PRICE_SURPLUS_MARGIN = '0.3';
+const DAYS_PER_YEAR = Decimal('365.25');
+const CONTRACT_CAPACITY_LIMIT_PERCENT = Decimal('0.2');
+const COVER_PRICE_SURPLUS_MARGIN = Decimal('0.3');
 
 class QuoteEngine {
   /**
@@ -40,13 +40,13 @@ class QuoteEngine {
    * Cover Amount x Staked Risk Cost x (1 + Surplus Margin) x Cover Period in Days / 365.25
    *
    * @param {Decimal} coverAmount
-   * @param {string} risk A number between 0 and 1
-   * @param {string} surplusMargin A number to calculate the multiplier (ex 0.3 for 30%)
+   * @param {Decimal} risk A number between 0 and 100
+   * @param {Decimal} surplusMargin A number to calculate the multiplier (ex 0.3 for 30%)
    * @param {number} coverPeriod Cover period in days (integer)
    * @return {Decimal}
    */
   static calculatePrice (coverAmount, risk, surplusMargin, coverPeriod) {
-    const surplusMultiplier = Decimal(surplusMargin).add(1);
+    const surplusMultiplier = surplusMargin.add(1);
     const pricePerDay = coverAmount
       .mul(risk)
       .div(100)
@@ -235,7 +235,7 @@ class QuoteEngine {
 
     if (netStakedNxm.eq(0)) {
       return {
-        error: 'uncoverable',
+        error: 'Uncoverable',
         generatedAt,
         expiresAt,
       };
@@ -250,8 +250,7 @@ class QuoteEngine {
 
     const risk = this.calculateRisk(netStakedNxm);
 
-    const surplusMargin = COVER_PRICE_SURPLUS_MARGIN;
-    const quotePriceInWei = QuoteEngine.calculatePrice(finalCoverAmountInWei, risk, surplusMargin, period);
+    const quotePriceInWei = QuoteEngine.calculatePrice(finalCoverAmountInWei, risk, COVER_PRICE_SURPLUS_MARGIN, period);
 
     const quotePriceInCoverCurrencyWei = quotePriceInWei.div(coverCurrencyRate).mul('1e18');
     const quotePriceInNxmWei = quotePriceInWei.div(nxmPrice).mul('1e18');

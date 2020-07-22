@@ -104,6 +104,17 @@ describe('calculateQuote()', function () {
       const expectedCoverAmountOffered = Decimal('2700');
       assertETHAndNXMPrices(amount, period, stakedNxm, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered);
     });
+
+    it(`returns 'uncoverable' for 0 stake`, function () {
+      const amount = Decimal('1000');
+      const period = 365.25;
+      const stakedNxm = Decimal(0);
+      const quoteData = QuoteEngine.calculateQuote(
+        amount, period, currency, currencyRate,
+        nxmPrice, stakedNxm, minCapETH, now,
+      );
+      assert.equal(quoteData.error, 'Uncoverable');
+    });
   });
 
   describe('calculates DAI covers correctly', function () {
