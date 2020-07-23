@@ -1,15 +1,11 @@
 # Quote API
 
-## 🚧⚠️ UNDER CONSTRUCTION ⚠️🚧
-
-Heads up! This project is still in development. The code in this repository is not production ready - use it at your own risk.
-
-## Requirements
+### Requirements
 ```
 node >= 12
 ```
 
-## Getting started
+### Getting started
 
 ```
 # Clone this repo:
@@ -26,6 +22,6 @@ $EDITOR .env
 npm start
 ```
 
-## API docs
+### API docs
 
-TBD
+Coming soon!
