@@ -91,6 +91,33 @@ module.exports = quoteEngine => {
     res.send(prettyPrintResponse(quote));
   }));
 
+  app.get('/v1/contracts/:contractAddress/capacity', asyncRoute(async (req, res) => {
+    const origin = req.get('origin');
+    const apiKey = req.headers['x-api-key'];
+    const isAllowed = await isOriginAllowed(origin, apiKey);
+
+    if (!isAllowed) {
+      return res.status(403).send({
+        error: true,
+        message: 'Origin not allowed. Contact us for an API key',
+      });
+    }
+
+    const { contractAddress } = req.params;
+    QuoteEngine.validateCapacityParameters();
+
+    const { error } = QuoteEngine.validateCapacityParameters(contractAddress);
+    if (error) {
+      log.error(`Invalid parameters provided: ${error}`);
+      return res.status(400).send({
+        error: true,
+        message: error,
+      });
+    }
+    const capacity = await quoteEngine.getCapacity(contractAddress);
+    res.send(capacity.toFixed());
+  }));
+
   /**
    * legacy endpoint.
    */
@@ -182,7 +209,7 @@ function toLegacyFormatResponse (r) {
   if (!r.error) {
     legacyResponse.reason = 'ok';
   } else {
-    legacyResponse.reason = error;
+    legacyResponse.reason = r.error;
   }
 
   return legacyResponse;

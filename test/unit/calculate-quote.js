@@ -1,11 +1,7 @@
 const assert = require('assert');
 const Decimal = require('decimal.js');
-
+const { to2Decimals } = require('./testing-utils');
 const QuoteEngine = require('../../src/quote-engine');
-
-function to2Decimals (weiValue) {
-  return weiValue.div('1e18').toDecimalPlaces(2).toFixed();
-}
 
 describe('calculateQuote()', function () {
   describe('respects input values and returns correct timestamps', function () {

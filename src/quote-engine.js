@@ -27,12 +27,13 @@ class QuoteEngine {
    *
    * @param {Decimal} stakedNxm
    * @param {Decimal} nxmPriceEth
-   * @param {Decimal} maxCapacityPerContract
+   * @param {Decimal} minCapETH
    * @return {Decimal}
    */
-  static calculateCapacity (stakedNxm, nxmPriceEth, maxCapacityPerContract) {
+  static calculateCapacity (stakedNxm, nxmPriceEth, minCapETH) {
+    const maxGlobalCapacityPerContract = minCapETH.mul(CONTRACT_CAPACITY_LIMIT_PERCENT);
     const stakedNxmEthValue = stakedNxm.mul(nxmPriceEth).div('1e18');
-    return utils.min(stakedNxmEthValue, maxCapacityPerContract);
+    return utils.min(stakedNxmEthValue, maxGlobalCapacityPerContract);
   }
 
   /**
@@ -242,9 +243,7 @@ class QuoteEngine {
       };
     }
 
-    const maxGlobalCapacityPerContract = minCapETH.mul(CONTRACT_CAPACITY_LIMIT_PERCENT);
-    const maxCapacity = QuoteEngine.calculateCapacity(netStakedNxm, nxmPrice, maxGlobalCapacityPerContract);
-
+    const maxCapacity = QuoteEngine.calculateCapacity(netStakedNxm, nxmPrice, minCapETH);
     const requestedCoverAmountInWei = requestedCoverAmount.mul(coverCurrencyRate);
     // limit cover amount by maxCapacity
     const finalCoverAmountInWei = utils.min(maxCapacity, requestedCoverAmountInWei);
@@ -345,6 +344,21 @@ class QuoteEngine {
     };
   }
 
+  /**
+   * @param {string} contractAddress
+   * @return {Decimal}
+   */
+  async getCapacity (contractAddress) {
+    const [netStakedNxm, minCapETH, nxmPrice] = await Promise.all([
+      this.getNetStakedNxm(contractAddress),
+      this.getLastMcrEth(),
+      this.getTokenPrice(),
+    ]);
+    const maxCapacity = QuoteEngine.calculateCapacity(netStakedNxm, nxmPrice, minCapETH);
+    log.info(`Computed capacity for ${contractAddress}: ${maxCapacity.toFixed()}`);
+    return maxCapacity;
+  }
+
   static validateQuoteParameters (contractAddress, coverAmount, currency, period) {
     const quoteSchema = Joi.object({
       contractAddress: Joi.string()
@@ -373,6 +387,18 @@ class QuoteEngine {
     });
 
     return validated;
+  }
+
+  static validateCapacityParameters (contractAddress) {
+    const quoteSchema = Joi.object({
+      contractAddress: Joi.string()
+        .length(42, 'utf8')
+        .regex(/^0(x|X)[a-fA-F0-9]{40}$/)
+        .example('0x51042c4d8936a7764d18370a6a0762b860bb8e07')
+        .required(),
+    });
+
+    return quoteSchema.validate({ contractAddress });
   }
 }
 

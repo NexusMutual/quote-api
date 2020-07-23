@@ -37,6 +37,14 @@ describe('GET quotes', function () {
       .set({ 'x-api-key': API_KEY, origin: ORIGIN });
     return response;
   }
+
+  async function requestCapacity (contractAddress) {
+    const response = await request(app)
+      .get(`/v1/contracts/${contractAddress}/capacity`)
+      .set({ 'x-api-key': API_KEY, origin: ORIGIN });
+    return response;
+  }
+
   before(async function () {
 
     const mongod = new MongoMemoryServer();
@@ -53,6 +61,14 @@ describe('GET quotes', function () {
     await ApiKey.create({ apiKey: API_KEY, origin: ORIGIN });
     app = await initApp();
     await new Promise(resolve => app.listen(PORT, resolve));
+  });
+
+  describe('GET /v1/contracts/:contractAddress/capacity', async function () {
+    it('responds with 200 for a production contract', async function () {
+      const contractAddress = '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B';
+      const { status } = await requestCapacity(contractAddress);
+      assert.equal(status, 200);
+    });
   });
 
   describe('GET /v1/quote', function () {
