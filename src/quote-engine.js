@@ -136,7 +136,6 @@ class QuoteEngine {
    */
   async getDaiRate () {
     const chainlinkAggregator = this.nexusContractLoader.instance('CHAINLINK-DAI-ETH');
-    console.log('wtf');
     const daiRate = await chainlinkAggregator.latestAnswer();
     return Decimal(daiRate.toString());
   }
