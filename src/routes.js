@@ -181,6 +181,8 @@ function toLegacyFormatResponse (r) {
 
   if (!r.error) {
     legacyResponse.reason = 'ok';
+  } else {
+    legacyResponse.reason = error;
   }
 
   return legacyResponse;

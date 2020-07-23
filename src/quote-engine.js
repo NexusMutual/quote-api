@@ -365,11 +365,11 @@ class QuoteEngine {
         .required(),
     });
 
-    const validated =quoteSchema.validate({
+    const validated = quoteSchema.validate({
       contractAddress,
       coverAmount,
       currency,
-      period
+      period,
     });
 
     return validated;
