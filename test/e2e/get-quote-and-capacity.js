@@ -127,7 +127,6 @@ describe('GET quotes', function () {
           assert.equal(status, 200, `Failed for ${JSON.stringify(contract)}`);
           results.push({ ...body, ...contract });
         }));
-        break;
       }
       console.log(results);
     });
