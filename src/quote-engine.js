@@ -20,6 +20,7 @@ class QuoteEngine {
     this.nexusContractLoader = nexusContractLoader;
     this.privateKey = privateKey;
     this.web3 = web3;
+    this.pooledStaking = this.nexusContractLoader.instance('PS');
   }
 
   /**
@@ -65,10 +66,9 @@ class QuoteEngine {
    * @return {Decimal} Net Staked NXM amount as decimal.js instance
    */
   async getNetStakedNxm (contractAddress) {
-    const pooledStaking = this.nexusContractLoader.instance('PS');
     const [stakedNxmBN, firstUnprocessedUnstake, unstakeRequests] = await Promise.all([
-      pooledStaking.contractStake(contractAddress),
-      this.getFirstUnprocessedUnstake(pooledStaking),
+      this.pooledStaking.contractStake(contractAddress),
+      this.getFirstUnprocessedUnstake(),
       this.getUnstakeRequests(contractAddress),
     ]);
     const stakedNxm = Decimal(stakedNxmBN.toString());
@@ -81,9 +81,9 @@ class QuoteEngine {
     return netStakedNxm;
   }
 
-  async getFirstUnprocessedUnstake (pooledStaking) {
-    const headPointer = await pooledStaking.unstakeRequests(0);
-    const firstUnprocessed = await pooledStaking.unstakeRequests(headPointer.next);
+  async getFirstUnprocessedUnstake () {
+    const headPointer = await this.pooledStaking.unstakeRequests(0);
+    const firstUnprocessed = await this.pooledStaking.unstakeRequests(headPointer.next);
     return firstUnprocessed;
   }
 
@@ -101,8 +101,7 @@ class QuoteEngine {
     const blocksBack = (UNSTAKE_PROCESSING_DAYS + BUFFER_DAYS) * DAY_IN_SECONDS / ASSUMED_BLOCK_TIME;
     const block = await this.web3.eth.getBlock('latest');
     const fromBlock = block.number - blocksBack;
-    const pooledStaking = this.nexusContractLoader.instance('PS');
-    const events = await pooledStaking.getPastEvents('UnstakeRequested', { fromBlock, filter: { contractAddress } });
+    const events = await this.pooledStaking.getPastEvents('UnstakeRequested', { fromBlock, filter: { contractAddress } });
     return events.map(e => e.args);
   }
 
