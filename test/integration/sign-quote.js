@@ -8,7 +8,7 @@ const Quotation = contract.fromArtifact('QuotationMock');
 
 describe('QuoteEngine.signQuote', function () {
 
-  before(async function()  {
+  before(async function () {
     const qt = await Quotation.new(authQuoteEngineAddress);
     this.qt = qt;
   });
@@ -19,14 +19,14 @@ describe('QuoteEngine.signQuote', function () {
     const { qt } = this;
 
     const quotationData = {
-      "currency":"ETH",
-      "period":100,
-      "amount": Decimal("1000"),
-      "price": Decimal("13346578668603537188"),
-      "priceInNXM": Decimal("451561311853817774240"),
-      "expiresAt":1595434956,
-      "generatedAt":1595431355422,
-      "contract":"0x3d9819210a31b4961b30ef54be2aed79b9c9cd3b"
+      currency: 'ETH',
+      period: 100,
+      amount: Decimal('1000'),
+      price: Decimal('13346578668603537188'),
+      priceInNXM: Decimal('451561311853817774240'),
+      expiresAt: 1595434956,
+      generatedAt: 1595431355422,
+      contract: '0x3d9819210a31b4961b30ef54be2aed79b9c9cd3b',
     };
 
     const sig = QuoteEngine.signQuote(quotationData, qt.address, authQuoteEnginePrivateKey);
@@ -43,8 +43,8 @@ describe('QuoteEngine.signQuote', function () {
       quotationData.contract,
       sig.v,
       sig.r,
-      sig.s
+      sig.s,
     );
     assert.equal(isValid, true);
-  })
+  });
 });

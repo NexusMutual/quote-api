@@ -2,10 +2,8 @@ require('dotenv').config();
 const assert = require('assert');
 const request = require('supertest');
 const axios = require('axios');
-const util = require('ethereumjs-util');
 const { initApp } = require('../../src/app');
 const { ApiKey } = require('../../src/models');
-
 
 const MongoMemoryServer = require('mongodb-memory-server').MongoMemoryServer;
 const mongoose = require('mongoose');
