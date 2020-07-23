@@ -112,7 +112,6 @@ describe('GET quotes', function () {
       assert.strictEqual(isNaN(parseInt(body.priceInNXM)), false);
       assert.strictEqual(isNaN(parseInt(body.expiresAt)), false);
       assert.strictEqual(isNaN(parseInt(body.generatedAt)), false);
-      console.log(body);
     });
 
     it('responds with a valid quote for a production contract for DAI', async function () {

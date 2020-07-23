@@ -1,9 +1,3 @@
-describe('sign', function () {
-
-  // this.timeout(0);
-  this.timeout(50000000000);
-  this.slow(2000);
-
+describe('integration', function () {
   require('./sign-quote');
-
 });

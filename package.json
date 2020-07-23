@@ -39,7 +39,10 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "test": "mocha"
+    "test": "mocha test --exit",
+    "test-unit": "mocha test/unit --exit",
+    "test-integration": "mocha test/integration --exit",
+    "test-e2e": "mocha test/e2e --exit"
   },
   "repository": {
     "type": "git",
