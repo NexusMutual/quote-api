@@ -85,9 +85,6 @@ module.exports = quoteEngine => {
       period,
     );
 
-    if (quote === null) {
-      return res.status(400).send({ error: true, message: 'Unable to create cover on the specified contract' });
-    }
     res.send(prettyPrintResponse(quote));
   }));
 
@@ -165,10 +162,6 @@ module.exports = quoteEngine => {
       currency,
       period,
     );
-
-    if (quote === null) {
-      return res.send({ error: true, message: 'Unable to create cover on the specified contract' });
-    }
 
     res.send(toLegacyFormatResponse(prettyPrintResponse(quote)));
   }));
