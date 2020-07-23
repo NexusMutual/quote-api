@@ -362,8 +362,7 @@ class QuoteEngine {
   static validateQuoteParameters (contractAddress, coverAmount, currency, period) {
     const quoteSchema = Joi.object({
       contractAddress: Joi.string()
-        .length(42, 'utf8')
-        .regex(/^0(x|X)[a-fA-F0-9]{40}$/)
+        .regex(/^0(x|X)[a-fA-F0-9]{40}$/i)
         .example('0x51042c4d8936a7764d18370a6a0762b860bb8e07')
         .required(),
       coverAmount: Joi.string()
@@ -392,8 +391,7 @@ class QuoteEngine {
   static validateCapacityParameters (contractAddress) {
     const quoteSchema = Joi.object({
       contractAddress: Joi.string()
-        .length(42, 'utf8')
-        .regex(/^0(x|X)[a-fA-F0-9]{40}$/)
+        .regex(/^0(x|X)[a-fA-F0-9]{40}$/i)
         .example('0x51042c4d8936a7764d18370a6a0762b860bb8e07')
         .required(),
     });
