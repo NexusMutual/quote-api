@@ -1,10 +1,11 @@
 require('dotenv').config();
 const assert = require('assert');
-const Decimal = require('decimal.js');
 const request = require('supertest');
 const axios = require('axios');
+const util = require('ethereumjs-util');
 const { initApp } = require('../../src/app');
 const { ApiKey } = require('../../src/models');
+
 
 const MongoMemoryServer = require('mongodb-memory-server').MongoMemoryServer;
 const mongoose = require('mongoose');
@@ -73,7 +74,6 @@ describe('GET quotes', function () {
       assert.equal(isNaN(parseInt(body.priceInNXM)), false);
       assert.equal(isNaN(parseInt(body.expiresAt)), false);
       assert.equal(isNaN(parseInt(body.generatedAt)), false);
-      console.log(body);
     });
 
     it('responds with 400 for a non-whitelisted contract', async function () {
@@ -140,7 +140,6 @@ describe('GET quotes', function () {
       assert.equal(isNaN(parseInt(body.PriceNxm)), false);
       assert.equal(isNaN(parseInt(body.expireTime)), false);
       assert.equal(isNaN(parseInt(body.generationTime)), false);
-      console.log(body);
     });
   });
 });

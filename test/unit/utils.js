@@ -1,7 +1,7 @@
 const assert = require('assert');
 const Decimal = require('decimal.js');
 
-const utils = require('../src/utils');
+const utils = require('../../src/utils');
 
 describe('utils', function () {
   describe('wrap()', function () {
