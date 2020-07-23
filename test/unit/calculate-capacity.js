@@ -12,6 +12,6 @@ describe('calculateCapacity()', function () {
     const minCapETH = Decimal(13500).mul('1e18');
 
     const capacity = QuoteEngine.calculateCapacity(stakedNxm, nxmPrice, minCapETH);
-    assert.equal(to2Decimals(capacity), '2060.09');
+    assert.strictEqual(to2Decimals(capacity), '2060.09');
   });
 });

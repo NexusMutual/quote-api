@@ -1,6 +1,3 @@
-
-const setup = require('../setup');
-
 describe('sign', function () {
 
   // this.timeout(0);

@@ -67,27 +67,70 @@ describe('GET quotes', function () {
     it('responds with 200 for a production contract', async function () {
       const contractAddress = '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B';
       const { status } = await requestCapacity(contractAddress);
-      assert.equal(status, 200);
+      assert.strictEqual(status, 200);
     });
   });
 
-  describe('GET /v1/quote', function () {
+  describe('GET /getQuote', function () {
     it('responds with a valid quote for a production contract', async function () {
       const coverAmount = '1000';
       const currency = 'ETH';
       const period = 100;
       const contractAddress = '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B';
 
+      const { status, body } = await request(app)
+        .get(`/getQuote/${coverAmount}/${currency}/${period}/${contractAddress}/M1`)
+        .set({ 'x-api-key': API_KEY, origin: ORIGIN });
+
+      assert.strictEqual(status, 200);
+      assert.strictEqual(body.coverCurr, 'ETH');
+      assert.strictEqual(body.coverAmount, parseInt(coverAmount));
+      assert.strictEqual(body.smartCA.toLowerCase(), contractAddress.toLowerCase());
+      assert.strictEqual(body.coverPeriod, period.toString());
+      assert.strictEqual(body.reason, 'ok');
+      assert.strictEqual(isNaN(parseInt(body.coverCurrPrice)), false);
+      assert.strictEqual(isNaN(parseInt(body.PriceNxm)), false);
+      assert.strictEqual(Number.isInteger(body.expireTime), true);
+      assert.strictEqual(Number.isInteger(body.generationTime), true);
+    });
+  });
+
+  describe('GET /v1/quote', function () {
+    it('responds with a valid quote for a production contract for ETH', async function () {
+      const coverAmount = '1000';
+      const currency = 'ETH';
+      const period = 100;
+      const contractAddress = '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B';
+
       const { status, body } = await requestQuote(coverAmount, currency, period, contractAddress);
-      assert.equal(status, 200);
-      assert.equal(body.currency, 'ETH');
-      assert.equal(body.amount, coverAmount);
-      assert.equal(body.contract.toLowerCase(), contractAddress.toLowerCase());
-      assert.equal(body.period, period);
-      assert.equal(isNaN(parseInt(body.price)), false);
-      assert.equal(isNaN(parseInt(body.priceInNXM)), false);
-      assert.equal(isNaN(parseInt(body.expiresAt)), false);
-      assert.equal(isNaN(parseInt(body.generatedAt)), false);
+      assert.strictEqual(status, 200);
+      assert.strictEqual(body.currency, 'ETH');
+      assert.strictEqual(body.amount, coverAmount);
+      assert.strictEqual(body.contract.toLowerCase(), contractAddress.toLowerCase());
+      assert.strictEqual(body.period, period.toString());
+      assert.strictEqual(isNaN(parseInt(body.price)), false);
+      assert.strictEqual(isNaN(parseInt(body.priceInNXM)), false);
+      assert.strictEqual(isNaN(parseInt(body.expiresAt)), false);
+      assert.strictEqual(isNaN(parseInt(body.generatedAt)), false);
+      console.log(body);
+    });
+
+    it('responds with a valid quote for a production contract for DAI', async function () {
+      const coverAmount = '20000';
+      const currency = 'DAI';
+      const period = 100;
+      const contractAddress = '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B';
+
+      const { status, body } = await requestQuote(coverAmount, currency, period, contractAddress);
+      assert.strictEqual(status, 200);
+      assert.strictEqual(body.currency, 'DAI');
+      assert.strictEqual(body.amount, coverAmount);
+      assert.strictEqual(body.contract.toLowerCase(), contractAddress.toLowerCase());
+      assert.strictEqual(parseInt(body.period), period);
+      assert.strictEqual(isNaN(parseInt(body.price)), false);
+      assert.strictEqual(isNaN(parseInt(body.priceInNXM)), false);
+      assert.strictEqual(isNaN(parseInt(body.expiresAt)), false);
+      assert.strictEqual(isNaN(parseInt(body.generatedAt)), false);
     });
 
     it('responds with 400 for a non-whitelisted contract', async function () {
@@ -96,7 +139,7 @@ describe('GET quotes', function () {
       const period = 100;
       const contractAddress = '0xd7c49cee7e9188cca6ad8ff264c1da2e69d4cf3b'; // NXM Token
       const { status } = await requestQuote(coverAmount, currency, period, contractAddress);
-      assert.equal(status, 400);
+      assert.strictEqual(status, 400);
     });
 
     it('responds with 200 for all currently whitelisted contracts for ETH and DAI quotes', async function () {
@@ -118,41 +161,17 @@ describe('GET quotes', function () {
 
         await Promise.all(chunk.map(async contract => {
           let { status, body } = await requestQuote(ethCoverAmount, 'ETH', period, contract.address);
-          assert.equal(status, 200, `Failed for ${JSON.stringify(contract)}`);
+          assert.strictEqual(status, 200, `Failed for ${JSON.stringify(contract)}`);
           results.push({ ...body, ...contract });
 
           const response = await requestQuote(daiCoverAmount, 'DAI', period, contract.address);
           status = response.status;
           body = response.body;
-          assert.equal(status, 200, `Failed for ${JSON.stringify(contract)}`);
+          assert.strictEqual(status, 200, `Failed for ${JSON.stringify(contract)}`);
           results.push({ ...body, ...contract });
         }));
       }
       console.log(results);
-    });
-  });
-
-  describe('GET /getQuote', function () {
-    it('responds with a valid quote for a production contract', async function () {
-      const coverAmount = '1000';
-      const currency = 'ETH';
-      const period = 100;
-      const contractAddress = '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B';
-
-      const { status, body } = await request(app)
-        .get(`/getQuote/${coverAmount}/${currency}/${period}/${contractAddress}/M1`)
-        .set({ 'x-api-key': API_KEY, origin: ORIGIN });
-
-      assert.equal(status, 200);
-      assert.equal(body.coverCurr, 'ETH');
-      assert.equal(body.coverAmount, coverAmount);
-      assert.equal(body.smartCA.toLowerCase(), contractAddress.toLowerCase());
-      assert.equal(body.coverPeriod, period);
-      assert.equal(body.reason, 'ok');
-      assert.equal(isNaN(parseInt(body.coverCurrPrice)), false);
-      assert.equal(isNaN(parseInt(body.PriceNxm)), false);
-      assert.equal(isNaN(parseInt(body.expireTime)), false);
-      assert.equal(isNaN(parseInt(body.generationTime)), false);
     });
   });
 });

@@ -57,15 +57,15 @@ describe('calculateQuote()', function () {
         amount, period, currency, currencyRate,
         nxmPrice, stakedNxm, minCapETH, now,
       );
-      assert.equal(
+      assert.strictEqual(
         to2Decimals(quoteData.price),
         to2Decimals(expectedPriceInETH),
       );
-      assert.equal(
+      assert.strictEqual(
         to2Decimals(quoteData.priceInNXM),
         to2Decimals(expectedPriceInNXM),
       );
-      assert.equal(
+      assert.strictEqual(
         to2Decimals(quoteData.amount),
         to2Decimals(expectedCoverAmountOffered),
       );
@@ -109,7 +109,7 @@ describe('calculateQuote()', function () {
         amount, period, currency, currencyRate,
         nxmPrice, stakedNxm, minCapETH, now,
       );
-      assert.equal(quoteData.error, 'Uncoverable');
+      assert.strictEqual(quoteData.error, 'Uncoverable');
       assert.strictEqual(now.getTime(), quoteData.generatedAt);
       assert.strictEqual(Math.ceil(now.getTime() / 1000 + 3600), quoteData.expiresAt);
     });
@@ -131,15 +131,15 @@ describe('calculateQuote()', function () {
         amount, period, currency, currencyRate,
         nxmPrice, stakedNxm, minCapETH, now,
       );
-      assert.equal(
+      assert.strictEqual(
         to2Decimals(quoteData.price),
         to2Decimals(expectedPriceInETH),
       );
-      assert.equal(
+      assert.strictEqual(
         to2Decimals(quoteData.priceInNXM),
         to2Decimals(expectedPriceInNXM),
       );
-      assert.equal(
+      assert.strictEqual(
         to2Decimals(quoteData.amount),
         to2Decimals(expectedCoverAmountOffered),
       );

@@ -23,7 +23,7 @@ describe('calculateRisk()', function () {
     ];
     for (const [stakedNXM, expectedRisk] of inputAndExpected) {
       const risk = QuoteEngine.calculateRisk(Decimal(stakedNXM).mul(1e18));
-      assert.equal(risk.toDecimalPlaces(2).toString(), expectedRisk, `Failed for stakedNXM=${stakedNXM}`);
+      assert.strictEqual(risk.toDecimalPlaces(2).toString(), expectedRisk, `Failed for stakedNXM=${stakedNXM}`);
     }
   });
 });

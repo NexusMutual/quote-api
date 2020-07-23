@@ -189,7 +189,7 @@ function toLegacyFormatResponse (r) {
     coverCurr: r.currency,
     coverPeriod: r.period,
     smartCA: r.contract,
-    coverAmount: r.amount,
+    coverAmount: parseInt(r.amount),
     coverCurrPrice: r.price,
     PriceNxm: r.priceInNXM,
     expireTime: r.expiresAt,
@@ -214,5 +214,6 @@ function prettyPrintResponse (r) {
     amount: r.amount.toFixed(),
     price: r.price.toFixed(),
     priceInNXM: r.priceInNXM.toFixed(),
+    period: r.period.toString()
   };
 }

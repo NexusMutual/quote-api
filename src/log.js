@@ -3,7 +3,7 @@ const winston = require('winston');
 
 const requestIdFormat = winston.format((info, opts) => {
   const reqId = httpContext.get('reqId');
-  return {...info, reqId };
+  return { ...info, reqId };
 });
 
 const logger = winston.createLogger({
