@@ -13,8 +13,9 @@ const COVER_PRICE_SURPLUS_MARGIN = Decimal('0.3');
 
 class QuoteEngine {
   /**
-   * @param {Etherscan} etherscan
-   * @param {VersionData} versionData
+   * @param {NexusContractLoader} nexusContractLoader
+   * @param {string} privateKey
+   * @param {Web3} web3
    */
   constructor (nexusContractLoader, privateKey, web3) {
     this.nexusContractLoader = nexusContractLoader;
