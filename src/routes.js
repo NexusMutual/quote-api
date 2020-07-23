@@ -55,13 +55,13 @@ module.exports = quoteEngine => {
     const period = req.query.period;
     const contractAddress = req.query.contractAddress;
 
-    const { valid, error } = QuoteEngine.validateQuoteParameters(
+    const { error } = QuoteEngine.validateQuoteParameters(
       contractAddress,
       coverAmount,
       currency,
       period,
     );
-    if (!valid) {
+    if (error) {
       log.error(`Invalid parameters provided: ${error}`);
       return res.status(400).send({
         error: true,
@@ -70,11 +70,11 @@ module.exports = quoteEngine => {
     }
     const whitelist = await getWhitelist();
     if (!whitelist.includes(contractAddress.toLowerCase())) {
-      const message = `Contract ${contractAddress} not on whitelist: ${error}`;
+      const message = `Contract ${contractAddress} not on whitelist`;
       log.error(message);
       return res.status(400).send({
         error: true,
-        message: error,
+        message,
       });
     }
 
@@ -108,6 +108,30 @@ module.exports = quoteEngine => {
     }
 
     const { contractAddress, coverAmount, currency, period } = req.params;
+
+    const { error } = QuoteEngine.validateQuoteParameters(
+      contractAddress,
+      coverAmount,
+      currency,
+      period,
+    );
+    if (error) {
+      log.error(`Invalid parameters provided: ${error}`);
+      return res.status(400).send({
+        error: true,
+        message: error,
+      });
+    }
+    const whitelist = await getWhitelist();
+    if (!whitelist.includes(contractAddress.toLowerCase())) {
+      const message = `Contract ${contractAddress} not on whitelist.`;
+      log.error(message);
+      return res.status(400).send({
+        error: true,
+        message,
+      });
+    }
+
     const quote = await quoteEngine.getQuote(
       contractAddress,
       coverAmount,

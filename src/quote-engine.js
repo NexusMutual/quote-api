@@ -2,6 +2,7 @@ const Decimal = require('decimal.js');
 const ethABI = require('ethereumjs-abi');
 const util = require('ethereumjs-util');
 const BN = require('bn.js');
+const Joi = require('joi');
 const utils = require('./utils');
 const { hex } = require('./utils');
 const log = require('./log');
@@ -295,8 +296,8 @@ class QuoteEngine {
    * @return {object|null}
    */
   async getQuote (contractAddress, coverAmount, currency, period) {
-    const { valid, error } = QuoteEngine.validateQuoteParameters(contractAddress, coverAmount, currency, period);
-    if (!valid) {
+    const { error } = QuoteEngine.validateQuoteParameters(contractAddress, coverAmount, currency, period);
+    if (error) {
       throw new Error(`Invalid parameters provided: ${error}`);
     }
     const upperCasedCurrency = currency.toUpperCase();
@@ -345,58 +346,38 @@ class QuoteEngine {
   }
 
   static validateQuoteParameters (contractAddress, coverAmount, currency, period) {
-    if (!isValidEthereumAddress(contractAddress)) {
-      return {
-        valid: false,
-        error: `Contract address ${contractAddress} is invalid.`,
-      };
-    }
+    const quoteSchema = Joi.object({
+      contractAddress: Joi.string()
+        .length(42, 'utf8')
+        .regex(/^0(x|X)[a-fA-F0-9]{40}$/)
+        .example('0x51042c4d8936a7764d18370a6a0762b860bb8e07')
+        .required(),
+      coverAmount: Joi.string()
+        .regex(/^\d+$/)
+        .min(1)
+        .required(),
+      currency: Joi.string()
+        .valid('ETH', 'DAI')
+        .required(),
+      period: Joi.number()
+        .min(30)
+        .max(365)
+        .required(),
+    });
 
-    let amount;
-    try {
-      amount = Decimal(coverAmount);
-    } catch (e) {
-      return {
-        valid: false,
-        error: `Cover amount ${coverAmount} is invalid.`,
-      };
-    }
-    if (amount.lt(0) || !amount.floor().eq(amount)) {
-      return {
-        valid: false,
-        error: `Cover amount ${coverAmount} is invalid.`,
-      };
-    }
+    const validated =quoteSchema.validate({
+      contractAddress,
+      coverAmount,
+      currency,
+      period
+    });
 
-    const SUPPORTED_CURRENCIES = ['ETH', 'DAI'];
-    if (!currency || !SUPPORTED_CURRENCIES.includes(currency.toUpperCase())) {
-      return {
-        valid: false,
-        error: `Currency ${currency} is invalid. Use one of ${JSON.stringify(SUPPORTED_CURRENCIES)}.`,
-      };
-    }
-
-    const parsedPeriod = parseInt(period);
-    const MIN_PERIOD = 30;
-    const MAX_PERIOD = 365;
-    if (isNaN(parsedPeriod) || parsedPeriod < MIN_PERIOD || parsedPeriod > MAX_PERIOD) {
-      return {
-        valid: false,
-        error: `Period ${period} is invalid. Provide an integer value in days between ${MIN_PERIOD} and ${MAX_PERIOD}.`,
-      };
-    }
-
-    return { valid: true };
+    return validated;
   }
 }
 
 function decimalToBN (value) {
   return new BN(value.floor().toString());
-}
-
-function isValidEthereumAddress (address) {
-  const ETHEREUM_ADDRESS_REGEX = /^0(x|X)[a-fA-F0-9]{40}$/;
-  return address && address.length === 42 && address.match(ETHEREUM_ADDRESS_REGEX);
 }
 
 module.exports = QuoteEngine;

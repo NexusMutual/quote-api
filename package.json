@@ -4,6 +4,7 @@
   "description": "Quote engine",
   "main": "src/index.js",
   "dependencies": {
+    "@openzeppelin/contract-loader": "^0.6.1",
     "@truffle/contract": "^4.2.13",
     "axios": "^0.19.2",
     "bn.js": "^4.11.8",
@@ -12,13 +13,13 @@
     "ethereumjs-abi": "^0.6.8",
     "express": "^4.17.1",
     "express-http-context": "^1.2.4",
+    "joi": "^17.1.1",
     "mongodb": "^3.5.2",
     "mongoose": "^5.8.9",
     "node-cache": "^5.1.2",
     "uuid": "^8.2.0",
     "web3": "^1.2.11",
-    "winston": "^3.3.3",
-    "@openzeppelin/contract-loader": "^0.6.1"
+    "winston": "^3.3.3"
   },
   "devDependencies": {
     "@openzeppelin/contract-loader": "^0.6.1",
