@@ -143,12 +143,12 @@ class QuoteEngine {
   /**
    * Returns amount of ether wei for 1 currency unit
    * @param {string} currency
-   * @return {Promise<string|Decimal>}
+   * @return {Promise<Decimal>}
    */
   async getCurrencyRate (currency) {
 
     if (currency === 'ETH') {
-      return '1e18';
+      return Decimal('1e18');
     }
 
     if (currency === 'DAI') {
@@ -310,16 +310,17 @@ class QuoteEngine {
     const netStakedNxm = await this.getNetStakedNxm(lowerCasedContractAddress);
     const minCapETH = await this.getLastMcrEth();
 
-    log.info(`Calculating quote with params ${JSON.stringify({
-      amount,
+    const params = {
+      amount: amount.toFixed(),
       period: parsedPeriod,
       currency: upperCasedCurrency,
-      currencyRate,
-      nxmPrice,
-      netStakedNxm,
-      minCapETH,
+      currencyRate: currencyRate.toFixed(),
+      nxmPrice: nxmPrice.toFixed(),
+      netStakedNxm: netStakedNxm.toFixed(),
+      minCapETH: minCapETH.toFixed(),
       now,
-    })}`);
+    };
+    log.info(`Calculating quote with params ${JSON.stringify(params)}`);
     const quoteData = QuoteEngine.calculateQuote(
       amount,
       parsedPeriod,
@@ -330,7 +331,10 @@ class QuoteEngine {
       minCapETH,
       now,
     );
-    log.info(`quoteData result: ${JSON.stringify(quoteData)}`);
+    log.info(`quoteData result: ${JSON.stringify({
+      ...quoteData,
+      params,
+    })}`);
 
     const unsignedQuote = { ...quoteData, contract: lowerCasedContractAddress };
     log.info(`Signing quote..`);
