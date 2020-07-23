@@ -365,7 +365,7 @@ class QuoteEngine {
       contractAddress: Joi.string()
         .length(42, 'utf8')
         .regex(/^0x[a-f0-9]{40}$/i)
-        .example('0x51042c4d8936a7764d18370a6a0762b860bb8e07')
+        .example('0x52042c4d8936a7764b18170a6a0762b870bb8e17')
         .required(),
       coverAmount: Joi.string()
         .regex(/^\d+$/)
