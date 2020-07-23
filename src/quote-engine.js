@@ -72,13 +72,11 @@ class QuoteEngine {
       this.getUnstakeRequests(contractAddress),
     ]);
     const stakedNxm = Decimal(stakedNxmBN.toString());
-    const totalUnprocessedUnstake = Decimal(unstakeRequests
+    const totalUnprocessedUnstakeBN = unstakeRequests
       .filter(e => e.unstakeAt.toNumber() >= firstUnprocessedUnstake.unstakeAt.toNumber())
       .map(e => e.amount)
-      .reduce((a, b) => a.add(b), new BN('0'))
-      .toString(),
-    );
-
+      .reduce((a, b) => a.add(b), new BN('0'));
+    const totalUnprocessedUnstake = Decimal(totalUnprocessedUnstakeBN.toString());
     const netStakedNxm = stakedNxm.sub(totalUnprocessedUnstake);
     return netStakedNxm;
   }
@@ -96,9 +94,9 @@ class QuoteEngine {
    * @return {Decimal} Pending unstaked NXM amount as decimal.js instance
    */
   async getUnstakeRequests (contractAddress) {
-    const ASSUMED_BLOCK_TIME = 10;
+    const ASSUMED_BLOCK_TIME = 15;
     const UNSTAKE_PROCESSING_DAYS = 90;
-    const BUFFER_DAYS = 10;
+    const BUFFER_DAYS = 30;
     const DAY_IN_SECONDS = 24 * 60 * 60;
     const blocksBack = (UNSTAKE_PROCESSING_DAYS + BUFFER_DAYS) * DAY_IN_SECONDS / ASSUMED_BLOCK_TIME;
     const block = await this.web3.eth.getBlock('latest');
