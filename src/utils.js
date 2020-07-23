@@ -1,4 +1,4 @@
-const Big = require('big.js');
+const Decimal = require('decimal.js');
 
 function wrap (text, length) {
   const regex = new RegExp(`.{1,${length}}`, 'g');
@@ -7,31 +7,46 @@ function wrap (text, length) {
 
 /**
  * Returns the minimum of two numbers
- * Input can be big.js instance, string, or number
- * @param {(Big|string|number)} a
- * @param {(Big|string|number)} b
- * @return {Big}
+ * Input can be decimal.js instance, string, or number
+ * @param {(Decimal|string|number)} a
+ * @param {(Decimal|string|number)} b
+ * @return {Decimal}
  */
 function min (a, b) {
-  const bigA = Big(a);
-  const bigB = Big(b);
+  const bigA = Decimal(a);
+  const bigB = Decimal(b);
   return bigA.lt(bigB) ? bigA : bigB;
 }
 
 /**
- * Returns maximum of two big.js numbers
- * @param {(Big|string|number)} a
- * @param {(Big|string|number)} b
- * @return {Big}
+ * Returns maximum of two decimal.js numbers
+ * @param {(Decimal|string|number)} a
+ * @param {(Decimal|string|number)} b
+ * @return {Decimal}
  */
 function max (a, b) {
-  const bigA = Big(a);
-  const bigB = Big(b);
+  const bigA = Decimal(a);
+  const bigB = Decimal(b);
   return bigA.gt(bigB) ? bigA : bigB;
+}
+
+const hex = string => '0x' + Buffer.from(string).toString('hex');
+
+function getEnv (key, fallback = false) {
+
+  const value = process.env[key] || fallback;
+
+  if (!value) {
+    throw new Error(`Missing env var: ${key}`);
+  }
+
+  return value;
 }
 
 module.exports = {
   wrap,
   min,
   max,
+  hex,
+  getEnv,
 };

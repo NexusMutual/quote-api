@@ -1,206 +1,41 @@
-const assert = require('assert');
-const Big = require('big.js');
-const web3 = require('web3');
-
+const Decimal = require('decimal.js');
+const ethABI = require('ethereumjs-abi');
+const util = require('ethereumjs-util');
+const BN = require('bn.js');
+const Joi = require('joi');
 const utils = require('./utils');
-const Stake = require('./models/stake');
-const ApiKey = require('./models/api-key');
+const { hex } = require('./utils');
+const log = require('./log');
 
-const ADD_STAKE_SIGNATURE = '6374299e'; // addStake(address,uint256)
-const STAKE_EXPIRATION_DAYS = '250';
-const MAX_DAYS_SINCE_THRESHOLD_MET = '250';
-const DAYS_PER_YEAR = '365.25';
-const MIN_STAKED_THRESHOLD = '1000';
-const RISK_COST_EXPONENT = '3';
-const LOW_RISK_COST_ETH_LIMIT = '1000';
-const CONTRACT_CAPACITY_LIMIT_PERCENT = '0.2';
-const HIGH_RISK_THRESHOLD = '0.5';
-const MIN_UNSTAKED_RISK = '0.02';
-const MIN_STAKED_RISK = '0.01';
-const MAX_STAKED_RISK = '0.1';
-const COVER_PRICE_SURPLUS_MARGIN = '0.3';
+const DAYS_PER_YEAR = Decimal('365.25');
+const CONTRACT_CAPACITY_LIMIT_PERCENT = Decimal('0.2');
+const COVER_PRICE_SURPLUS_MARGIN = Decimal('0.3');
 
 class QuoteEngine {
-
   /**
-   * @param {Etherscan} etherscan
-   * @param {VersionData} versionData
+   * @param {NexusContractLoader} nexusContractLoader
+   * @param {string} privateKey
+   * @param {Web3} web3
    */
-  constructor (etherscan, versionData) {
-    this.etherscan = etherscan;
-    this.versionData = versionData;
-  }
-
-  /**
-   * Parses transaction list in format returned by etherscan
-   * Returns data as array of stake data objects
-   *
-   * @param transactions
-   * @return {Object[]}
-   */
-  static parseTransactions (transactions) {
-    return transactions
-      .filter(transaction => transaction.isError === '0') // filter out failed transactions
-      .map(transaction => {
-        const fn = transaction.input.slice(2, 10);
-        const params = utils.wrap(transaction.input.slice(10), 64);
-        return { ...transaction, fn, params };
-      })
-      .filter(transaction => transaction.fn === ADD_STAKE_SIGNATURE) // only addStake function
-      .map(transaction => {
-        const { from: stakerAddress, params } = transaction;
-        const contractAddress = '0x' + params[0].slice(24);
-        const amount = Big(parseInt(params[1], 16)).toFixed();
-        const stakedAt = new Date(transaction.timeStamp * 1000);
-        const blockNumber = parseInt(transaction.blockNumber, 10);
-        return { blockNumber, stakerAddress, contractAddress, amount, stakedAt };
-      });
-  }
-
-  static calculateTotalStakedAmount (stakes, contract) {
-    return stakes
-      .filter(stake => stake.contractAddress === contract)
-      .reduce((sum, stake) => sum.add(stake.amount), Big(0))
-      .toFixed();
-  }
-
-  /**
-   * @param {Stake[]} unsortedStakes
-   * @param {string} nxmWeiThreshold
-   */
-  static calculateThresholdMetDate (unsortedStakes, nxmWeiThreshold) {
-
-    // sort chronologically
-    const stakes = unsortedStakes.sort((a, b) => a.stakedAt - b.stakedAt);
-    const stakeExpirationDays = parseInt(STAKE_EXPIRATION_DAYS, 10);
-    const stakeExpirationInterval = Big(stakeExpirationDays * 24 * 3600 * 1000);
-
-    for (const referenceStake of stakes) {
-
-      let current = Big(0);
-
-      for (const stake of stakes) {
-
-        const age = Big(referenceStake.stakedAt - stake.stakedAt);
-
-        if (age.gte(stakeExpirationInterval)) {
-          continue;
-        }
-
-        const originalStakeAmount = Big(stake.amount);
-        const timeLeft = stakeExpirationInterval.sub(age);
-        const currentStakeAmount = originalStakeAmount.mul(timeLeft).div(stakeExpirationInterval);
-
-        // in-place addition
-        current = current.add(currentStakeAmount);
-
-        if (current.gte(nxmWeiThreshold)) {
-          return stake.stakedAt;
-        }
-
-        if (stake._id.equals(referenceStake._id)) {
-          // got to present stake
-          break;
-        }
-      }
-    }
-
-    return null;
-  }
-
-  /**
-   * @param {Date} since
-   * @param {Date} untill
-   * @return {number}
-   */
-  static calculateDaysDiff (since, untill) {
-    const msPerDay = Big(1000 * 3600 * 24); // milliseconds in a day
-    const daysSinceMet = Big(untill - since).div(msPerDay).abs();
-    return parseInt(daysSinceMet.toFixed(0), 10); // rounding down
-  }
-
-  /**
-   * Max[
-   *  Min[Unstaked Risk, MAX_STAKED_RISK] x (1 - Staked NXM x NXM PriceETH / LOW_RISK_LIMIT_ETH),
-   *  MIN_STAKED_RISK
-   * ]
-   *
-   * @param {string} stakedNxm Number of staked tokens in nxmWei
-   * @param {string} nxmPriceEth In wei
-   * @param {string} lowRiskEthLimit In wei. Prevents pricing from going to 0 for contracts staked over this limit
-   * @param {string} unstakedRisk
-   * @param {string} minStakedRisk
-   * @param {string} maxStakedRisk
-   * @return {string} A number between 0 and 1
-   */
-  static calculateStakedRisk (
-    stakedNxm, nxmPriceEth, lowRiskEthLimit, unstakedRisk, minStakedRisk, maxStakedRisk,
-  ) {
-
-    assert(Big(lowRiskEthLimit || 0).gt(0));
-    assert(Big(minStakedRisk || 0).gt(0));
-    assert(Big(maxStakedRisk || 0).gt(0));
-
-    const stakedNxmEthValue = Big(stakedNxm).mul(nxmPriceEth).div('1e18');
-    const stakingToLimitRatio = stakedNxmEthValue.div(lowRiskEthLimit);
-    const minRiskMultiplier = utils.min(unstakedRisk, maxStakedRisk);
-
-    const calculatedRisk = Big(1).minus(stakingToLimitRatio).mul(minRiskMultiplier);
-    const risk = utils.max(calculatedRisk, minStakedRisk);
-
-    return risk.toFixed();
-  }
-
-  /**
-   * Max[
-   *   ((250 - Days Since First Staked Threshold has been met) / 250) ^ (RISK_COST_EXPONENT),
-   *   MIN_UNSTAKED_RISK_COST
-   * ]
-   *
-   * @param {Number} daysSinceThresholdMet
-   * @param {Number} riskExponent
-   * @param {string} minUnstakedRisk
-   * @return {string} A number between 0 and 1
-   */
-  static calculateUnstakedRisk (daysSinceThresholdMet, riskExponent, minUnstakedRisk) {
-    const maxDaysSinceMet = parseInt(MAX_DAYS_SINCE_THRESHOLD_MET, 10);
-    const boundedDaysSinceMet = Math.min(maxDaysSinceMet, daysSinceThresholdMet);
-
-    const ratio = Big(maxDaysSinceMet)
-      .minus(boundedDaysSinceMet)
-      .div(maxDaysSinceMet);
-
-    const calculatedRisk = ratio.pow(riskExponent);
-    const risk = utils.max(calculatedRisk, minUnstakedRisk);
-
-    return risk.toFixed();
+  constructor (nexusContractLoader, privateKey, web3) {
+    this.nexusContractLoader = nexusContractLoader;
+    this.privateKey = privateKey;
+    this.web3 = web3;
+    this.pooledStaking = this.nexusContractLoader.instance('PS');
   }
 
   /**
    * Min [Staked NXM x NXM PriceETH, maxCapacityPerContract]
    *
-   * @param {Big} stakedNxm
-   * @param {Big} nxmPriceEth
-   * @param {Big} maxCapacityPerContract
-   * @return {Big}
+   * @param {Decimal} stakedNxm
+   * @param {Decimal} nxmPriceEth
+   * @param {Decimal} minCapETH
+   * @return {Decimal}
    */
-  static calculateStakedCapacity (stakedNxm, nxmPriceEth, maxCapacityPerContract) {
-    const stakedNxmEthValue = Big(stakedNxm).mul(nxmPriceEth);
-    return utils.min(stakedNxmEthValue, maxCapacityPerContract);
-  }
-
-  /**
-   * if [Unstaked Risk Cost > 50%, 0 , maxCapacityPerContract] - Staked Capacity
-   *
-   * @param {string} unstakedRisk A value between 0 and 1
-   * @param {Big} maxUnstakedRisk
-   * @param {Big} maxCapacityPerContract Max available capacity for a contract in ETH
-   * @param {Big} stakedCapacity Staked capacity in ETH
-   * @return {Big}
-   */
-  static calculateUnstakedCapacity (unstakedRisk, maxUnstakedRisk, maxCapacityPerContract, stakedCapacity) {
-    const isHighRisk = Big(unstakedRisk).gt(maxUnstakedRisk);
-    return isHighRisk ? Big(0) : maxCapacityPerContract.sub(stakedCapacity);
+  static calculateCapacity (stakedNxm, nxmPriceEth, minCapETH) {
+    const maxGlobalCapacityPerContract = minCapETH.mul(CONTRACT_CAPACITY_LIMIT_PERCENT);
+    const stakedNxmEthValue = stakedNxm.mul(nxmPriceEth).div('1e18');
+    return utils.min(stakedNxmEthValue, maxGlobalCapacityPerContract);
   }
 
   /**
@@ -208,16 +43,17 @@ class QuoteEngine {
    *
    * Cover Amount x Staked Risk Cost x (1 + Surplus Margin) x Cover Period in Days / 365.25
    *
-   * @param {Big} coverAmount
-   * @param {string} risk A number between 0 and 1
-   * @param {string} surplusMargin A number to calculate the multiplier (ex 0.3 for 30%)
+   * @param {Decimal} coverAmount
+   * @param {Decimal} risk A number between 0 and 100
+   * @param {Decimal} surplusMargin A number to calculate the multiplier (ex 0.3 for 30%)
    * @param {number} coverPeriod Cover period in days (integer)
-   * @return {Big}
+   * @return {Decimal}
    */
   static calculatePrice (coverAmount, risk, surplusMargin, coverPeriod) {
-    const surplusMultiplier = Big(surplusMargin).add(1);
+    const surplusMultiplier = surplusMargin.add(1);
     const pricePerDay = coverAmount
       .mul(risk)
+      .div(100)
       .mul(surplusMultiplier)
       .div(DAYS_PER_YEAR);
 
@@ -225,229 +61,283 @@ class QuoteEngine {
   }
 
   /**
-   * Fetches total staked NXM on a smart contract
+   * Fetches total net staked NXM on a smart contract at timestamp 'now'
    *
    * @param {string} contractAddress
-   * @return {Big} Staked NXM amount as big.js instance
+   * @return {Decimal} Net Staked NXM amount as decimal.js instance
    */
-  async getStakedNxm (contractAddress) {
-    const tokenFunctions = this.versionData.instance('TF');
-    const staked = await tokenFunctions.methods.getTotalStakedTokensOnSmartContract(contractAddress).call();
-    return Big(staked);
+  async getNetStakedNxm (contractAddress) {
+    const [stakedNxmBN, firstUnprocessedUnstake, unstakeRequests] = await Promise.all([
+      this.pooledStaking.contractStake(contractAddress),
+      this.getFirstUnprocessedUnstake(),
+      this.getUnstakeRequests(contractAddress),
+    ]);
+    const stakedNxm = Decimal(stakedNxmBN.toString());
+    const totalUnprocessedUnstakeBN = unstakeRequests
+      .filter(e => e.unstakeAt.toNumber() >= firstUnprocessedUnstake.unstakeAt.toNumber())
+      .map(e => e.amount)
+      .reduce((a, b) => a.add(b), new BN('0'));
+    const totalUnprocessedUnstake = Decimal(totalUnprocessedUnstakeBN.toString());
+    const netStakedNxm = stakedNxm.sub(totalUnprocessedUnstake);
+    return netStakedNxm;
+  }
+
+  async getFirstUnprocessedUnstake () {
+    const headPointer = await this.pooledStaking.unstakeRequests(0);
+    const firstUnprocessed = await this.pooledStaking.unstakeRequests(headPointer.next);
+    return firstUnprocessed;
+  }
+
+  /**
+   * Fetches total pending unstaked NXM on a smart contract at timestamp 'now'
+   *
+   * @param {string} contractAddress
+   * @return {Decimal} Pending unstaked NXM amount as decimal.js instance
+   */
+  async getUnstakeRequests (contractAddress) {
+    const ASSUMED_BLOCK_TIME = 15;
+    const UNSTAKE_PROCESSING_DAYS = 90;
+    const BUFFER_DAYS = 30;
+    const DAY_IN_SECONDS = 24 * 60 * 60;
+    const blocksBack = (UNSTAKE_PROCESSING_DAYS + BUFFER_DAYS) * DAY_IN_SECONDS / ASSUMED_BLOCK_TIME;
+    const block = await this.web3.eth.getBlock('latest');
+    const fromBlock = block.number - blocksBack;
+    const events = await this.pooledStaking.getPastEvents('UnstakeRequested', { fromBlock, filter: { contractAddress } });
+    return events.map(e => e.args);
   }
 
   /**
    * Fetches NXM token price in ETH
    *
-   * @return {Big}
+   * @return {Decimal}
    */
   async getTokenPrice () {
-    const tokenFunctions = this.versionData.instance('TF');
-    const currency = web3.utils.fromAscii('ETH');
-    const price = await tokenFunctions.methods.getTokenPrice(currency).call();
-    return Big(price);
+    const tokenFunctions = this.nexusContractLoader.instance('TF');
+    const price = await tokenFunctions.getTokenPrice(hex('ETH'));
+    return Decimal(price.toString());
   }
 
   /**
    * Fetches mcrEther from last posted MCR
    *
-   * @return {Big}
+   * @return {Decimal}
    */
   async getLastMcrEth () {
-    const poolData = this.versionData.instance('PD');
-    const mcrEth = await poolData.methods.getLastMCREther().call();
-    return Big(mcrEth);
+    const poolData = this.nexusContractLoader.instance('PD');
+    const mcrEth = await poolData.getLastMCREther();
+    return Decimal(mcrEth.toString());
   }
 
   /**
    * Fetches DAI price in wei from Chainlink
-   * @return {Big}
+   * @return {Decimal}
    */
   async getDaiRate () {
-    const chainlinkAggregator = this.versionData.instance('CHAINLINK-DAI-ETH');
-    const daiRate = await chainlinkAggregator.methods.latestAnswer().call();
-    return Big(daiRate);
+    const chainlinkAggregator = this.nexusContractLoader.instance('CHAINLINK-DAI-ETH');
+    const daiRate = await chainlinkAggregator.latestAnswer();
+    return Decimal(daiRate.toString());
   }
 
   /**
    * Returns amount of ether wei for 1 currency unit
    * @param {string} currency
-   * @return {Promise<string|Big>}
+   * @return {Promise<Decimal>}
    */
   async getCurrencyRate (currency) {
 
     if (currency === 'ETH') {
-      return '1e18';
+      return Decimal('1e18');
     }
 
     if (currency === 'DAI') {
-      return this.getDaiRate();
+      const daiRate = await this.getDaiRate();
+      return daiRate;
     }
 
     throw new Error(`Unsupported currency ${currency}`);
   }
 
   /**
-   * @param {Big} reqCoverAmount Amount user wants to cover in cover currency, ex: 100
-   * @param {number} coverPeriod Cover period in days
-   * @param {Stake[]} stakes
-   * @param {String} coverCurrency Ex: "ETH" or "DAI"
-   * @param {Big} coverCurrencyRate Amount of wei for 1 cover currency unit
-   * @param {Big} nxmPrice Amount of wei for 1 NXM
-   * @param {Big} stakedNxm
-   * @param {Big} minCapETH
+   *
+   * @param {object} quotationData
+   * @param {string} quotationContractAddress
+   * @param {string} privateKeyString
+   * @return {{ v: number, r: string, s: string }}
+   */
+  static signQuote (quotationData, quotationContractAddress, privateKeyString) {
+    const currency = '0x' + Buffer.from(quotationData.currency, 'utf8').toString('hex');
+    const orderParts = [
+      { value: decimalToBN(quotationData.amount), type: 'uint' },
+      { value: currency, type: 'bytes4' },
+      { value: new BN(quotationData.period), type: 'uint16' },
+      { value: quotationData.contract, type: 'address' },
+      { value: decimalToBN(quotationData.price), type: 'uint' },
+      { value: decimalToBN(quotationData.priceInNXM), type: 'uint' },
+      { value: new BN(quotationData.expiresAt), type: 'uint' },
+      { value: new BN(quotationData.generatedAt), type: 'uint' },
+      { value: quotationContractAddress, type: 'address' },
+    ];
+
+    const types = orderParts.map(o => o.type);
+    const values = orderParts.map(o => o.value);
+    const message = ethABI.soliditySHA3(types, values);
+    const msgHash = util.hashPersonalMessage(message);
+    const privateKey = Buffer.from(privateKeyString, 'hex');
+    const sig = util.ecsign(msgHash, privateKey);
+    return {
+      v: sig.v,
+      r: '0x' + util.toUnsigned(util.fromSigned(sig.r)).toString('hex'),
+      s: '0x' + util.toUnsigned(util.fromSigned(sig.s)).toString('hex'),
+    };
+  }
+
+  /**
+   * @param {Decimal} requestedCoverAmount Amount user wants to cover in cover currency, ex: 100
+   * @param {number} period Cover period in days
+   * @param {String} currency Ex: "ETH" or "DAI"
+   * @param {Decimal} coverCurrencyRate Amount of wei for 1 cover currency unit
+   * @param {Decimal} nxmPrice Amount of wei for 1 NXM
+   * @param {Decimal} netStakedNxm
+   * @param {Decimal} minCapETH
    * @param {Date} now
    *
    * @typedef {{
-   *   reason: string,
-   *   generationTime: number,
-   *   expireTime: number,
+   *   error: string,
+   *     generatedAt: number,
+   *     expiresAt: number,
    * }} QuoteUncoverable
    *
    * @typedef {{
-   *     reason: string,
-   *     generationTime: number,
-   *     expireTime: number,
-   *     coverCurrency: string,
-   *     coverPeriod: number,
-   *     coverAmount: Big,
-   *     coverCurrPrice: Big,
-   *     PriceNxm: Big,
+   *     generatedAt: number,
+   *     expiresAt: number,
+   *     currency: string,
+   *     period: number,
+   *     amount: Decimal,
+   *     price: Decimal,
+   *     princeInNXM: Decimal,
    * }} QuoteCoverable
    *
    * @return {QuoteCoverable|QuoteUncoverable|null}
    */
   static calculateQuote (
-    reqCoverAmount,
-    coverPeriod,
-    stakes,
-    coverCurrency,
+    requestedCoverAmount,
+    period,
+    currency,
     coverCurrencyRate,
     nxmPrice,
-    stakedNxm,
+    netStakedNxm,
     minCapETH,
     now,
   ) {
+    const generatedAt = now.getTime();
+    const expiresAt = Math.ceil(generatedAt / 1000 + 3600);
 
-    const generationTime = now.getTime();
-    const expireTime = Math.ceil(generationTime / 1000 + 3600);
-
-    const minStakedThreshold = Big(MIN_STAKED_THRESHOLD).mul('1e18').toFixed(); // nxmWei
-    const thresholdMetDate = QuoteEngine.calculateThresholdMetDate(stakes, minStakedThreshold);
-
-    if (thresholdMetDate === null) {
+    if (netStakedNxm.eq(0)) {
       return {
-        reason: 'uncoverable: not enough staking',
-        generationTime,
-        expireTime,
+        error: 'Uncoverable',
+        generatedAt,
+        expiresAt,
       };
     }
 
-    const daysSinceThresholdMet = QuoteEngine.calculateDaysDiff(thresholdMetDate, now);
+    const maxCapacity = QuoteEngine.calculateCapacity(netStakedNxm, nxmPrice, minCapETH);
+    const requestedCoverAmountInWei = requestedCoverAmount.mul(coverCurrencyRate);
+    // limit cover amount by maxCapacity
+    const finalCoverAmountInWei = utils.min(maxCapacity, requestedCoverAmountInWei);
 
-    const riskCostExponent = parseInt(RISK_COST_EXPONENT, 10);
-    const lowRiskLimit = Big(LOW_RISK_COST_ETH_LIMIT).mul('1e18').toFixed(); // in wei
+    const risk = this.calculateRisk(netStakedNxm);
 
-    const unstakedRisk = QuoteEngine.calculateUnstakedRisk(daysSinceThresholdMet, riskCostExponent, MIN_UNSTAKED_RISK);
-    const stakedRisk = QuoteEngine.calculateStakedRisk(
-      stakedNxm.toFixed(),
-      nxmPrice.toFixed(),
-      lowRiskLimit,
-      unstakedRisk,
-      MIN_STAKED_RISK,
-      MAX_STAKED_RISK,
-    );
+    const quotePriceInWei = QuoteEngine.calculatePrice(finalCoverAmountInWei, risk, COVER_PRICE_SURPLUS_MARGIN, period);
 
-    const maxCapacityPerContract = minCapETH.mul(CONTRACT_CAPACITY_LIMIT_PERCENT).mul('1e18'); // in wei
-    const stakedCapacity = QuoteEngine.calculateStakedCapacity(stakedNxm, nxmPrice, maxCapacityPerContract);
-
-    const maxUnstakedRisk = Big(HIGH_RISK_THRESHOLD);
-    const unstakedCapacity = QuoteEngine.calculateUnstakedCapacity(
-      unstakedRisk,
-      maxUnstakedRisk,
-      maxCapacityPerContract,
-      stakedCapacity,
-    );
-
-    const requestedCoverAmountInWei = reqCoverAmount.mul(coverCurrencyRate);
-    const stakedCoverAmount = utils.min(requestedCoverAmountInWei, stakedCapacity);
-    const leftCoverAmount = requestedCoverAmountInWei.sub(stakedCoverAmount);
-
-    const unstakedCoverAmount = stakedCoverAmount.gte(requestedCoverAmountInWei)
-      ? Big(0)
-      : utils.min(leftCoverAmount, unstakedCapacity);
-
-    const surplusMargin = COVER_PRICE_SURPLUS_MARGIN;
-    const stakedPrice = QuoteEngine.calculatePrice(stakedCoverAmount, stakedRisk, surplusMargin, coverPeriod);
-    const unstakedPrice = QuoteEngine.calculatePrice(unstakedCoverAmount, unstakedRisk, surplusMargin, coverPeriod);
-
-    const quotePriceInWei = stakedPrice.add(unstakedPrice);
     const quotePriceInCoverCurrencyWei = quotePriceInWei.div(coverCurrencyRate).mul('1e18');
     const quotePriceInNxmWei = quotePriceInWei.div(nxmPrice).mul('1e18');
-
-    const totalCoverOffered = stakedCoverAmount.add(unstakedCoverAmount);
-    const totalCoverInCoverCurrency = totalCoverOffered.div(coverCurrencyRate);
+    const finalCoverInCoverCurrency = finalCoverAmountInWei.div(coverCurrencyRate);
 
     return {
-      coverCurrency,
-      coverPeriod,
-      coverAmount: totalCoverInCoverCurrency.toFixed(0),
-      coverCurrPrice: quotePriceInCoverCurrencyWei.toFixed(6),
-      PriceNxm: quotePriceInNxmWei.toFixed(0),
-      reason: 'ok',
-      expireTime,
-      generationTime,
+      currency,
+      period,
+      amount: finalCoverInCoverCurrency,
+      price: quotePriceInCoverCurrencyWei,
+      priceInNXM: quotePriceInNxmWei,
+      expiresAt,
+      generatedAt,
     };
   }
 
   /**
-   * Not implemented in the alpha version
-   * @param {object} quote
-   * @return {{ v: number, r: string, s: string }}
+   * Calculates risk percentage as a value between 1 and 100
+   *
+   * @param {Decimal} netStakedNxm
+   * @return {Decimal} risk percentage
    */
-  static signQuote (quote) {
-    return {
-      v: 28,
-      r: '0xdeadbeef',
-      s: '0xdeadbeef',
-    };
+  static calculateRisk (netStakedNxm) {
+    const STAKED_HIGH_RISK_COST = Decimal(100);
+    const LOW_RISK_COST_LIMIT_NXM = Decimal(200000).mul('1e18');
+    const PRICING_EXPONENT = Decimal(7);
+    const STAKED_LOW_RISK_COST = Decimal(1);
+    // uncappedRiskCost = stakedHighRiskCost * [1 - netStakedNXM/lowRiskCostLimit ^ (1/pricingExponent) ];
+    const exponent = Decimal(1).div(PRICING_EXPONENT);
+    const uncappedRiskCost = STAKED_HIGH_RISK_COST
+      .mul(Decimal(1).sub(netStakedNxm.div(LOW_RISK_COST_LIMIT_NXM).pow(exponent)));
+
+    const riskCost = utils.max(STAKED_LOW_RISK_COST, uncappedRiskCost);
+    return riskCost;
   }
 
   /**
    * @param {string} contractAddress
-   * @param {string} reqCoverAmount Requested cover amount (might differ from offered cover amount)
+   * @param {string} coverAmount Requested cover amount (might differ from offered cover amount)
    * @param {string} currency
-   * @param {string} reqPeriod
+   * @param {string} period
    * @return {object|null}
    */
-  async getQuote (contractAddress, reqCoverAmount, currency, reqPeriod) {
+  async getQuote (contractAddress, coverAmount, currency, period) {
+    const { error } = QuoteEngine.validateQuoteParameters(contractAddress, coverAmount, currency, period);
+    if (error) {
+      throw new Error(`Invalid parameters provided: ${error}`);
+    }
+    const upperCasedCurrency = currency.toUpperCase();
+    const lowerCasedContractAddress = contractAddress.toLowerCase();
+    const parsedPeriod = parseInt(period);
 
-    const amount = Big(reqCoverAmount);
-    const period = parseInt(reqPeriod, 10);
+    const amount = Decimal(coverAmount);
     const now = new Date();
-
-    const stakes = await Stake.find({ contractAddress });
-    console.log(`Found ${stakes.length} stakes for the contract`);
-
-    const currencyRate = await this.getCurrencyRate(currency); // ETH amount for 1 unit of the currency
+    const currencyRate = await this.getCurrencyRate(upperCasedCurrency); // ETH amount for 1 unit of the currency
     const nxmPrice = await this.getTokenPrice(); // ETH amount for 1 unit of the currency
 
-    const stakedNxm = await this.getStakedNxm(contractAddress);
+    const netStakedNxm = await this.getNetStakedNxm(lowerCasedContractAddress);
     const minCapETH = await this.getLastMcrEth();
 
+    const params = {
+      amount: amount.toFixed(),
+      period: parsedPeriod,
+      currency: upperCasedCurrency,
+      currencyRate: currencyRate.toFixed(),
+      nxmPrice: nxmPrice.toFixed(),
+      netStakedNxm: netStakedNxm.toFixed(),
+      minCapETH: minCapETH.toFixed(),
+      now,
+    };
+    log.info(`Calculating quote with params ${JSON.stringify(params)}`);
     const quoteData = QuoteEngine.calculateQuote(
       amount,
-      period,
-      stakes,
-      currency,
+      parsedPeriod,
+      upperCasedCurrency,
       currencyRate,
       nxmPrice,
-      stakedNxm,
+      netStakedNxm,
       minCapETH,
       now,
     );
-    const unsignedQuote = { ...quoteData, coverCurr: currency, smartCA: contractAddress };
-    const signature = QuoteEngine.signQuote(unsignedQuote);
+    log.info(`quoteData result: ${JSON.stringify({
+      ...quoteData,
+      params,
+    })}`);
+
+    const unsignedQuote = { ...quoteData, contract: lowerCasedContractAddress };
+    log.info(`Signing quote..`);
+    const quotationAddress = this.nexusContractLoader.instance('QT').address;
+    const signature = QuoteEngine.signQuote(unsignedQuote, quotationAddress, this.privateKey);
 
     return {
       ...unsignedQuote,
@@ -455,56 +345,66 @@ class QuoteEngine {
     };
   }
 
-  // stakedRisk             = Max[ Min[Unstaked Risk Cost, Staked High Risk Cost] x (1 - Staked NXM x NXM PriceETH / Low Risk Cost LimitETH), Staked Low Risk Cost]
-  // unstakedRisk           = Max[ ((250 - Days Since First Staked Threshold has been met) / 250)^(Risk Cost Exponent) , Min Unstaked Risk ]
-
-  // maxCapacityPerContract = Min Cap ETH x Capacity Limit
-
-  // stakedCapacity         = Min[ Staked NXM x NXM PriceETH, maxCapacityPerContract ]
-  // unstakedCapacity       = if[ Unstaked Risk Cost > 50%, 0 , maxCapacityPerContract ] - Staked Capacity
-
-  // stakedCoverAmount      = Min[ Cover Amount, Staked Capacity ]
-  // unstakedCoverAmount    = Min[ Cover Amount - Staked Cover Amount, Unstaked Capacity ]
-
-  // stakedPrice            = Staked Cover Amount x Staked Risk Cost x (1 + Surplus Margin) x Cover Period in Days / 365.25
-  // unstakedPrice          = Unstaked Cover Amount x Unstaked Risk Cost x (1 + Surplus Margin) x Cover Period in Days / 365.25
-
-  // totalCover Offered     = Staked Cover Amount + Unstaked Cover Amount
-  // quoteTotalPrice        = Staked Price + Unstaked Price
-  // totalPriceInNXM        = Total Price / if[ quote in DAI, NXM PriceDAI , NXM Price ETH ]
-
-  async getLastBlock () {
-    const lastStake = await Stake.findOne().sort({ blockNumber: -1 });
-    return lastStake ? lastStake.blockNumber : 0;
+  /**
+   * @param {string} contractAddress
+   * @return {Decimal}
+   */
+  async getCapacity (contractAddress) {
+    const [netStakedNxm, minCapETH, nxmPrice] = await Promise.all([
+      this.getNetStakedNxm(contractAddress),
+      this.getLastMcrEth(),
+      this.getTokenPrice(),
+    ]);
+    const maxCapacity = QuoteEngine.calculateCapacity(netStakedNxm, nxmPrice, minCapETH);
+    log.info(`Computed capacity for ${contractAddress}: ${maxCapacity.toFixed()}`);
+    return maxCapacity;
   }
 
-  async fetchNewStakes () {
-    const lastBlock = await this.getLastBlock();
-    const startBlock = lastBlock + 1;
+  static validateQuoteParameters (contractAddress, coverAmount, currency, period) {
+    const quoteSchema = Joi.object({
+      contractAddress: Joi.string()
+        .length(42, 'utf8')
+        .regex(/^0x[a-f0-9]{40}$/i)
+        .example('0x52042c4d8936a7764b18170a6a0762b870bb8e17')
+        .required(),
+      coverAmount: Joi.string()
+        .regex(/^\d+$/)
+        .min(1)
+        .required(),
+      currency: Joi.string()
+        .valid('ETH', 'DAI')
+        .required(),
+      period: Joi.number()
+        .min(30)
+        .max(365)
+        .required(),
+    });
 
-    console.log(`Fetching transactions starting with ${startBlock}`);
-    const watchedContract = this.versionData.address('TF'); // TokenFunctions
-    const transactions = await this.etherscan.getTransactions(watchedContract, { startBlock });
-    const stakes = QuoteEngine.parseTransactions(transactions);
+    const validated = quoteSchema.validate({
+      contractAddress,
+      coverAmount,
+      currency,
+      period,
+    });
 
-    console.log(`Found ${stakes.length} new stakes`);
-    Stake.insertMany(stakes);
+    return validated;
   }
 
-  async isOriginAllowed (origin, apiKey) {
+  static validateCapacityParameters (contractAddress) {
+    const quoteSchema = Joi.object({
+      contractAddress: Joi.string()
+        .length(42, 'utf8')
+        .regex(/^0x[a-f0-9]{40}$/i)
+        .example('0x52042c4d8936a7764b18170a6a0762b870bb8e17')
+        .required(),
+    });
 
-    if (/\.nexusmutual\.io$/.test(origin)) {
-      return true;
-    }
-
-    if (!apiKey) { // null, undefined, etc
-      return false;
-    }
-
-    apiKey = await ApiKey.findOne({ origin, apiKey });
-
-    return apiKey !== null;
+    return quoteSchema.validate({ contractAddress });
   }
+}
+
+function decimalToBN (value) {
+  return new BN(value.floor().toString());
 }
 
 module.exports = QuoteEngine;
