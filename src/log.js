@@ -3,9 +3,7 @@ const winston = require('winston');
 
 const requestIdFormat = winston.format((info, opts) => {
   const reqId = httpContext.get('reqId');
-  // eslint-disable-next-line
-  info.reqId = reqId;
-  return info;
+  return {...info, reqId };
 });
 
 const logger = winston.createLogger({
