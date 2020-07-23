@@ -214,6 +214,6 @@ function prettyPrintResponse (r) {
     amount: r.amount.toFixed(),
     price: r.price.toFixed(),
     priceInNXM: r.priceInNXM.toFixed(),
-    period: r.period.toString()
+    period: r.period.toString(),
   };
 }

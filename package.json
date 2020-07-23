@@ -22,7 +22,6 @@
     "winston": "^3.3.3"
   },
   "devDependencies": {
-    "@openzeppelin/contract-loader": "^0.6.1",
     "@openzeppelin/test-environment": "^0.1.4",
     "eslint": "^6.8.0",
     "eslint-config-semistandard": "^15.0.0",
@@ -46,12 +45,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/NexusMutual/quote-engine.git"
+    "url": "git+https://github.com/NexusMutual/quote-api.git"
   },
   "author": "shark0der",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/NexusMutual/quote-engine/issues"
+    "url": "https://github.com/NexusMutual/quote-api/issues"
   },
-  "homepage": "https://github.com/NexusMutual/quote-engine#readme"
+  "homepage": "https://github.com/NexusMutual/quote-api#readme"
 }
