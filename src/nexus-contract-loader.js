@@ -1,4 +1,4 @@
-const axios = require('axios');
+const fetch = require('node-fetch');
 const log = require('./log');
 const { setupLoader } = require('@openzeppelin/contract-loader');
 
@@ -12,7 +12,7 @@ class NexusContractLoader {
 
   async init () {
     log.info(`Fetching version data from ${this.versionDataURL} for network ${this.chain}`);
-    const { data } = await axios.get(this.versionDataURL);
+    const data = await fetch(this.versionDataURL).then(res => res.json());
 
     if (typeof data[this.chain] === 'undefined') {
       throw new Error(`No data for ${this.chain} chain found.`);

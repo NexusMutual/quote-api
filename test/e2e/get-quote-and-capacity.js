@@ -1,7 +1,7 @@
 require('dotenv').config();
 const assert = require('assert');
 const request = require('supertest');
-const axios = require('axios');
+const fetch = require('node-fetch');
 const { initApp } = require('../../src/app');
 const { ApiKey } = require('../../src/models');
 
@@ -101,7 +101,7 @@ describe('GET quotes', function () {
 
     it('responds with 200 for all currently whitelisted contracts for ETH and DAI quotes', async function () {
       const whitelist = [];
-      const { data } = await axios.get('https://api.nexusmutual.io/coverables/contracts.json');
+      const data = await fetch('https://api.nexusmutual.io/coverables/contracts.json').then(res => res.json());
       for (const address of Object.keys(data)) {
         if (!data[address].deprecated) {
           data[address] = { ...data[address], address };

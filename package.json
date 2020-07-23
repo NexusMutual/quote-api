@@ -6,7 +6,6 @@
   "dependencies": {
     "@openzeppelin/contract-loader": "^0.6.1",
     "@truffle/contract": "^4.2.13",
-    "axios": "^0.19.2",
     "bn.js": "^4.11.8",
     "decimal.js": "^10.2.0",
     "dotenv": "^8.2.0",
@@ -17,6 +16,7 @@
     "mongodb": "^3.5.2",
     "mongoose": "^5.8.9",
     "node-cache": "^5.1.2",
+    "node-fetch": "^2.6.0",
     "uuid": "^8.2.0",
     "web3": "^1.2.11",
     "winston": "^3.3.3"
