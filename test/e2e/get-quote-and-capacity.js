@@ -3,7 +3,8 @@ const assert = require('assert');
 const request = require('supertest');
 const fetch = require('node-fetch');
 const { initApp } = require('../../src/app');
-const { ApiKey } = require('../../src/models');
+const { ApiKey, Cover } = require('../../src/models');
+const { covers } = require('./smarcoverdetails-test-data');
 
 const MongoMemoryServer = require('mongodb-memory-server').MongoMemoryServer;
 const mongoose = require('mongoose');
@@ -59,13 +60,27 @@ describe('GET quotes', function () {
     process.env.MONGO_URL = uri;
 
     await ApiKey.create({ apiKey: API_KEY, origin: ORIGIN });
+
     app = await initApp();
     await new Promise(resolve => app.listen(PORT, resolve));
+  });
+
+  afterEach(async function () {
+    try {
+      await SmartCoverDetails.collection.drop();
+    } catch (e) {
+      console.log(`Error in afterEach: ${e}`);
+    }
   });
 
   describe('GET /v1/contracts/:contractAddress/capacity', async function () {
     it('responds with 200 for a production contract', async function () {
       const contractAddress = '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B';
+      const smartCoverDetailsList = covers();
+      smartCoverDetailsList.forEach(cover => {
+        cover.smartContractAdd = contractAddress;
+      });
+      await Cover.insertMany(smartCoverDetailsList);
       const { status } = await requestCapacity(contractAddress);
       assert.strictEqual(status, 200);
     });
@@ -77,6 +92,11 @@ describe('GET quotes', function () {
       const currency = 'ETH';
       const period = 100;
       const contractAddress = '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B';
+      const smartCoverDetailsList = covers();
+      smartCoverDetailsList.forEach(cover => {
+        cover.smartContractAdd = contractAddress;
+      });
+      await Cover.insertMany(smartCoverDetailsList);
 
       const { status, body } = await request(app)
         .get(`/getQuote/${coverAmount}/${currency}/${period}/${contractAddress}/M1`)
@@ -101,6 +121,11 @@ describe('GET quotes', function () {
       const currency = 'ETH';
       const period = 100;
       const contractAddress = '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B';
+      const smartCoverDetailsList = covers();
+      smartCoverDetailsList.forEach(cover => {
+        cover.smartContractAdd = contractAddress;
+      });
+      await Cover.insertMany(smartCoverDetailsList);
 
       const { status, body } = await requestQuote(coverAmount, currency, period, contractAddress);
       assert.strictEqual(status, 200);
@@ -119,6 +144,11 @@ describe('GET quotes', function () {
       const currency = 'DAI';
       const period = 100;
       const contractAddress = '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B';
+      const smartCoverDetailsList = covers();
+      smartCoverDetailsList.forEach(cover => {
+        cover.smartContractAdd = contractAddress;
+      });
+      await Cover.insertMany(smartCoverDetailsList);
 
       const { status, body } = await requestQuote(coverAmount, currency, period, contractAddress);
       assert.strictEqual(status, 200);
@@ -151,7 +181,7 @@ describe('GET quotes', function () {
         }
       }
       const ethCoverAmount = '100';
-      const daiCoverAmount = '23000';
+      const daiCoverAmount = '100';
       const period = 100;
 
       const chunks = chunk(whitelist, 10);
@@ -159,6 +189,7 @@ describe('GET quotes', function () {
       for (const chunk of chunks) {
 
         await Promise.all(chunk.map(async contract => {
+
           let { status, body } = await requestQuote(ethCoverAmount, 'ETH', period, contract.address);
           assert.strictEqual(status, 200, `Failed for ${JSON.stringify(contract)}`);
           results.push({ ...body, ...contract });

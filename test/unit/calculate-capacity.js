@@ -11,7 +11,15 @@ describe('calculateCapacity()', function () {
     const nxmPrice = nxmPriceDAI.div(ethDAIRate);
     const minCapETH = Decimal(13500).mul('1e18');
 
-    const capacity = QuoteEngine.calculateCapacity(stakedNxm, nxmPrice, minCapETH);
-    assert.strictEqual(to2Decimals(capacity), '2060.09');
+    const activeCovers = [
+      { sumAssured: Decimal('200'), currency: 'ETH' },
+      { sumAssured: Decimal('100').mul(ethDAIRate), currency: 'DAI' },
+    ];
+    const currencyRates = {
+      ETH: Decimal('1e18'),
+      DAI: Decimal('1e18').div(ethDAIRate),
+    };
+    const capacity = QuoteEngine.calculateCapacity(stakedNxm, nxmPrice, minCapETH, activeCovers, currencyRates);
+    assert.strictEqual(to2Decimals(capacity), '1760.09');
   });
 });

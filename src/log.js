@@ -7,10 +7,10 @@ const requestIdFormat = winston.format((info, opts) => {
 });
 
 const logger = winston.createLogger({
-  format: winston.format.combine(winston.format.simple(), winston.format.timestamp(), requestIdFormat()),
+  format: winston.format.combine(winston.format.simple(), requestIdFormat()),
   transports: [
     new winston.transports.Console({
-      format: winston.format.combine(winston.format.simple(), winston.format.timestamp(), requestIdFormat()),
+      format: winston.format.combine(winston.format.simple(), requestIdFormat()),
       level: 'info',
       handleExceptions: true,
     }),

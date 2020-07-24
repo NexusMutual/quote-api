@@ -14,11 +14,11 @@ async function initApp () {
   const NETWORK = getEnv('NETWORK', 'mainnet');
   const MONGO_URL = getEnv('MONGO_URL', 'mainnet');
 
-  log.info(`Connecting to node at ${PROVIDER_URL}..`);
+  log.info(`Connecting to node at ${new URL(PROVIDER_URL).origin}..`);
   const web3 = new Web3(PROVIDER_URL);
   await web3.eth.net.isListening();
 
-  log.info('Connecting to database');
+  log.info('Connecting to database..');
   const opts = { useNewUrlParser: true, useUnifiedTopology: true };
   await mongoose.connect(MONGO_URL, opts);
 

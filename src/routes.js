@@ -111,8 +111,11 @@ module.exports = quoteEngine => {
         message: error,
       });
     }
-    const capacity = await quoteEngine.getCapacity(contractAddress);
-    res.send(capacity.toFixed());
+    const { capacity, netStakedNxm } = await quoteEngine.getCapacity(contractAddress);
+    res.send({
+      capacity: capacity.toFixed(0),
+      netstakeNXM: netStakedNxm.toFixed(0)
+    });
   }));
 
   /**
@@ -151,8 +154,8 @@ module.exports = quoteEngine => {
       const message = `Contract ${contractAddress} not on whitelist.`;
       log.error(message);
       return res.status(400).send({
-        error: true,
-        message,
+        reason: 'Uncoverable',
+        coverAmount: 0,
       });
     }
 
@@ -211,9 +214,9 @@ function toLegacyFormatResponse (r) {
 function prettyPrintResponse (r) {
   return {
     ...r,
-    amount: r.amount.toFixed(),
-    price: r.price.toFixed(),
-    priceInNXM: r.priceInNXM.toFixed(),
+    amount: r.amount.toFixed(0),
+    price: r.price.toFixed(0),
+    priceInNXM: r.priceInNXM.toFixed(0),
     period: r.period.toString(),
   };
 }
