@@ -111,8 +111,11 @@ module.exports = quoteEngine => {
         message: error,
       });
     }
-    const capacity = await quoteEngine.getCapacity(contractAddress);
-    res.send(capacity.toFixed(0));
+    const { capacity, netStakedNxm } = await quoteEngine.getCapacity(contractAddress);
+    res.send({
+      capacity: capacity.toFixed(0),
+      netstakeNXM: netStakedNxm.toFixed(0)
+    });
   }));
 
   /**

@@ -6,7 +6,7 @@ const Joi = require('joi');
 const utils = require('./utils');
 const { hex } = require('./utils');
 const log = require('./log');
-const SmartCoverDetails = require('./models/api-key');
+const SmartCoverDetails = require('./models/smart-cover-details');
 const ActiveCover = require('./active-cover');
 
 const DAYS_PER_YEAR = Decimal('365.25');
@@ -149,10 +149,10 @@ class QuoteEngine {
     const storedActiveCovers = await SmartCoverDetails.find({
       expirytimeStamp: { $gt: now.getTime() / 1000 },
       lockCN: { $ne: '0' },
-      smartContractAdd: contractAddress,
+      smartContractAdd: contractAddress.toLowerCase(),
     });
     return storedActiveCovers.map(stored => {
-      return ActiveCover(stored.smartContractAdd, stored.sumAssured, store.curr);
+      return new ActiveCover(stored.smartContractAdd, stored.sumAssured, stored.curr);
     });
   }
 
@@ -180,9 +180,9 @@ class QuoteEngine {
    * @param {[]string]} currencies
    * @return {Promise<objec>}
    */
-  async getCurrencyRates (currencies) {
+  async getCurrencyRates () {
     const rates = {};
-    await Promise.all(currencies.map(async currency => {
+    await Promise.all(['ETH', 'DAI'].map(async currency => {
       rates[currency] = await this.getCurrencyRate(currency);
     }));
     return rates;
@@ -339,12 +339,9 @@ class QuoteEngine {
     const now = new Date();
 
     const activeCovers = await this.getActiveCovers(lowerCasedContractAddress, now);
-    const requiredCurrenciesSet = new Set(activeCovers.map(cover => cover.currency));
-    requiredCurrenciesSet.add(upperCasedCurrency);
-    const requiredCurrencies = Array.from(requiredCurrenciesSet);
 
     const [currencyRates, nxmPrice, netStakedNxm, minCapETH] = await Promise.all([
-      this.getCurrencyRates(requiredCurrencies),
+      this.getCurrencyRates(),
       this.getTokenPrice(), // ETH amount for 1 unit of the currency
       this.getNetStakedNxm(lowerCasedContractAddress),
       this.getLastMcrEth(),
@@ -395,16 +392,22 @@ class QuoteEngine {
   async getCapacity (contractAddress) {
     const now = new Date();
     const activeCovers = await this.getActiveCovers(contractAddress, now);
-    const requiredCurrencies = Array.from(new Set(activeCovers.map(cover => cover.currency)));
     const [netStakedNxm, minCapETH, nxmPrice, currencyRates] = await Promise.all([
       this.getNetStakedNxm(contractAddress),
       this.getLastMcrEth(),
       this.getTokenPrice(),
-      this.getCurrencyRates(requiredCurrencies),
+      this.getCurrencyRates(),
     ]);
+    log.info(`Detected ${activeCovers.length} active covers.`);
+    log.info(JSON.stringify({
+      netStakedNxm, minCapETH, nxmPrice, currencyRates
+    }));
     const maxCapacity = QuoteEngine.calculateCapacity(netStakedNxm, nxmPrice, minCapETH, activeCovers, currencyRates);
     log.info(`Computed capacity for ${contractAddress}: ${maxCapacity.toFixed()}`);
-    return maxCapacity;
+    return {
+      capacity: maxCapacity,
+      netStakedNxm
+    };
   }
 
   static validateQuoteParameters (contractAddress, coverAmount, currency, period) {
