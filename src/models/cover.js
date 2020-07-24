@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const COLLECTION = 'smartcoverdetails';
 
-const smartCoverDetails = new mongoose.Schema({
+const cover = new mongoose.Schema({
   smartContractAdd: String,
   sumAssured: Number,
   expiry: Date,
@@ -10,7 +10,7 @@ const smartCoverDetails = new mongoose.Schema({
   premium: Number,
   premiumNXM: Number,
   curr: String,
-  lockCN: String, // TODO: check if this is correct
+  lockCN: String,
   coverId: Number,
   blockNumber: Number,
   coverCreation: Date,
@@ -18,4 +18,4 @@ const smartCoverDetails = new mongoose.Schema({
   version: String,
 });
 
-module.exports = mongoose.model('SmartCoverDetails', smartCoverDetails, COLLECTION);
+module.exports = mongoose.model('Cover', cover, COLLECTION);

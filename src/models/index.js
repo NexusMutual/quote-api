@@ -1,7 +1,7 @@
 const ApiKey = require('./api-key');
-const SmartCoverDetails = require('./smart-cover-details');
+const Cover = require('./cover');
 
 module.exports = {
   ApiKey,
-  SmartCoverDetails,
+  Cover,
 };

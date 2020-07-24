@@ -1,5 +1,5 @@
 
-function getSmartCoverDetailsList () {
+function covers () {
   const expiresAt = new Date(new Date().getTime() + 30 * 24 * 60 * 60 * 1000);
   const expiredAt = new Date(new Date().getTime() - 30 * 24 * 60 * 60 * 1000);
 
@@ -53,10 +53,10 @@ function getSmartCoverDetailsList () {
     version: 'M1',
   };
 
-  const smartCoverDetailsList = [activeQuoteETH, activeQuoteDAI, expiredQuote];
-  return smartCoverDetailsList;
+  const covers = [activeQuoteETH, activeQuoteDAI, expiredQuote];
+  return covers;
 }
 
 module.exports = {
-  getSmartCoverDetailsList,
+  covers,
 };

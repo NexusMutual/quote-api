@@ -6,7 +6,7 @@ const Joi = require('joi');
 const utils = require('./utils');
 const { hex } = require('./utils');
 const log = require('./log');
-const SmartCoverDetails = require('./models/smart-cover-details');
+const Cover = require('./models/cover');
 
 const DAYS_PER_YEAR = Decimal('365.25');
 const CONTRACT_CAPACITY_LIMIT_PERCENT = Decimal('0.2');
@@ -151,7 +151,7 @@ class QuoteEngine {
    * @return {[{ contractAddress: string, sumAssured: Decimal, currency: string }]}
    */
   static async getActiveCovers (contractAddress, now) {
-    const storedActiveCovers = await SmartCoverDetails.find({
+    const storedActiveCovers = await Cover.find({
       expirytimeStamp: { $gt: now.getTime() / 1000 },
       lockCN: { $ne: '0' },
       smartContractAdd: contractAddress.toLowerCase(),
