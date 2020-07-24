@@ -6,6 +6,8 @@ const Joi = require('joi');
 const utils = require('./utils');
 const { hex } = require('./utils');
 const log = require('./log');
+const SmartCoverDetails = require('./models/api-key');
+const ActiveCover = require('./active-cover');
 
 const DAYS_PER_YEAR = Decimal('365.25');
 const CONTRACT_CAPACITY_LIMIT_PERCENT = Decimal('0.2');
@@ -30,12 +32,17 @@ class QuoteEngine {
    * @param {Decimal} stakedNxm
    * @param {Decimal} nxmPriceEth
    * @param {Decimal} minCapETH
+   * @param {[ActiveCover]} activeCovers
+   * @param {object} currencyRates
    * @return {Decimal}
    */
-  static calculateCapacity (stakedNxm, nxmPriceEth, minCapETH) {
+  static calculateCapacity (stakedNxm, nxmPriceEth, minCapETH, activeCovers, currencyRates) {
     const maxGlobalCapacityPerContract = minCapETH.mul(CONTRACT_CAPACITY_LIMIT_PERCENT);
     const stakedNxmEthValue = stakedNxm.mul(nxmPriceEth).div('1e18');
-    return utils.min(stakedNxmEthValue, maxGlobalCapacityPerContract);
+    const activeCoversEthValues = activeCovers.map(cover => currencyRates[cover.currency].mul(cover.sumAssured));
+    const activeCoversSumEthValue = activeCoversEthValues.reduce((a, b) => a.add(b), Decimal(0));
+    const contractCapacity = utils.max(stakedNxmEthValue.sub(activeCoversSumEthValue), Decimal(0));
+    return utils.min(contractCapacity, maxGlobalCapacityPerContract);
   }
 
   /**
@@ -138,6 +145,17 @@ class QuoteEngine {
     return Decimal(daiRate.toString());
   }
 
+  async getActiveCovers (contractAddress, now) {
+    const storedActiveCovers = await SmartCoverDetails.find({
+      expirytimeStamp: { $gt: now.getTime() / 1000 },
+      lockCN: { $ne: '0' },
+      smartContractAdd: contractAddress,
+    });
+    return storedActiveCovers.map(stored => {
+      return ActiveCover(stored.smartContractAdd, stored.sumAssured, store.curr);
+    });
+  }
+
   /**
    * Returns amount of ether wei for 1 currency unit
    * @param {string} currency
@@ -155,6 +173,19 @@ class QuoteEngine {
     }
 
     throw new Error(`Unsupported currency ${currency}`);
+  }
+
+  /**
+   * Returns amount of ether wei for 1 currency unit
+   * @param {[]string]} currencies
+   * @return {Promise<objec>}
+   */
+  async getCurrencyRates (currencies) {
+    const rates = {};
+    await Promise.all(currencies.map(async currency => {
+      rates[currency] = await this.getCurrencyRate(currency);
+    }));
+    return rates;
   }
 
   /**
@@ -199,6 +230,8 @@ class QuoteEngine {
    * @param {Decimal} nxmPrice Amount of wei for 1 NXM
    * @param {Decimal} netStakedNxm
    * @param {Decimal} minCapETH
+   * @param {[ActiveCover]} activeCovers
+   * @param {object} currencyRates
    * @param {Date} now
    *
    * @typedef {{
@@ -223,14 +256,16 @@ class QuoteEngine {
     requestedCoverAmount,
     period,
     currency,
-    coverCurrencyRate,
     nxmPrice,
     netStakedNxm,
     minCapETH,
+    activeCovers,
+    currencyRates,
     now,
   ) {
     const generatedAt = now.getTime();
     const expiresAt = Math.ceil(generatedAt / 1000 + 3600);
+    const coverCurrencyRate = currencyRates[currency];
 
     if (netStakedNxm.eq(0)) {
       return {
@@ -240,7 +275,7 @@ class QuoteEngine {
       };
     }
 
-    const maxCapacity = QuoteEngine.calculateCapacity(netStakedNxm, nxmPrice, minCapETH);
+    const maxCapacity = QuoteEngine.calculateCapacity(netStakedNxm, nxmPrice, minCapETH, activeCovers, currencyRates);
     const requestedCoverAmountInWei = requestedCoverAmount.mul(coverCurrencyRate);
     // limit cover amount by maxCapacity
     const finalCoverAmountInWei = utils.min(maxCapacity, requestedCoverAmountInWei);
@@ -302,17 +337,24 @@ class QuoteEngine {
 
     const amount = Decimal(coverAmount);
     const now = new Date();
-    const currencyRate = await this.getCurrencyRate(upperCasedCurrency); // ETH amount for 1 unit of the currency
-    const nxmPrice = await this.getTokenPrice(); // ETH amount for 1 unit of the currency
 
-    const netStakedNxm = await this.getNetStakedNxm(lowerCasedContractAddress);
-    const minCapETH = await this.getLastMcrEth();
+    const activeCovers = await this.getActiveCovers(lowerCasedContractAddress, now);
+    const requiredCurrenciesSet = new Set(activeCovers.map(cover => cover.currency));
+    requiredCurrenciesSet.add(upperCasedCurrency);
+    const requiredCurrencies = Array.from(requiredCurrenciesSet);
+
+    const [currencyRates, nxmPrice, netStakedNxm, minCapETH] = await Promise.all([
+      this.getCurrencyRates(requiredCurrencies),
+      this.getTokenPrice(), // ETH amount for 1 unit of the currency
+      this.getNetStakedNxm(lowerCasedContractAddress),
+      this.getLastMcrEth(),
+    ]);
 
     const params = {
       amount: amount.toFixed(),
       period: parsedPeriod,
       currency: upperCasedCurrency,
-      currencyRate: currencyRate.toFixed(),
+      currencyRate: currencyRates[upperCasedCurrency].toFixed(),
       nxmPrice: nxmPrice.toFixed(),
       netStakedNxm: netStakedNxm.toFixed(),
       minCapETH: minCapETH.toFixed(),
@@ -323,10 +365,11 @@ class QuoteEngine {
       amount,
       parsedPeriod,
       upperCasedCurrency,
-      currencyRate,
       nxmPrice,
       netStakedNxm,
       minCapETH,
+      activeCovers,
+      currencyRates,
       now,
     );
     log.info(`quoteData result: ${JSON.stringify({
@@ -350,12 +393,16 @@ class QuoteEngine {
    * @return {Decimal}
    */
   async getCapacity (contractAddress) {
-    const [netStakedNxm, minCapETH, nxmPrice] = await Promise.all([
+    const now = new Date();
+    const activeCovers = await this.getActiveCovers(contractAddress, now);
+    const requiredCurrencies = Array.from(new Set(activeCovers.map(cover => cover.currency)));
+    const [netStakedNxm, minCapETH, nxmPrice, currencyRates] = await Promise.all([
       this.getNetStakedNxm(contractAddress),
       this.getLastMcrEth(),
       this.getTokenPrice(),
+      this.getCurrencyRates(requiredCurrencies),
     ]);
-    const maxCapacity = QuoteEngine.calculateCapacity(netStakedNxm, nxmPrice, minCapETH);
+    const maxCapacity = QuoteEngine.calculateCapacity(netStakedNxm, nxmPrice, minCapETH, activeCovers, currencyRates);
     log.info(`Computed capacity for ${contractAddress}: ${maxCapacity.toFixed()}`);
     return maxCapacity;
   }

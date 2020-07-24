@@ -25,9 +25,9 @@ function min (a, b) {
  * @return {Decimal}
  */
 function max (a, b) {
-  const bigA = Decimal(a);
-  const bigB = Decimal(b);
-  return bigA.gt(bigB) ? bigA : bigB;
+  const decimalA = Decimal(a);
+  const decimalB = Decimal(b);
+  return decimalA.gt(decimalB) ? decimalA : decimalB;
 }
 
 const hex = string => '0x' + Buffer.from(string).toString('hex');
