@@ -104,6 +104,7 @@ module.exports = quoteEngine => {
     QuoteEngine.validateCapacityParameters();
 
     const { error } = QuoteEngine.validateCapacityParameters(contractAddress);
+
     if (error) {
       log.error(`Invalid parameters provided: ${error}`);
       return res.status(400).send({
@@ -111,10 +112,13 @@ module.exports = quoteEngine => {
         message: error,
       });
     }
-    const { capacity, netStakedNxm } = await quoteEngine.getCapacity(contractAddress);
+
+    const { capacityDAI, capacityETH, netStakedNXM } = await quoteEngine.getCapacity(contractAddress);
+
     res.send({
-      capacity: capacity.toFixed(0),
-      netstakeNXM: netStakedNxm.toFixed(0)
+      capacityETH: capacityETH.toFixed(0),
+      capacityDAI: capacityDAI.toFixed(0),
+      netstakeNXM: netStakedNXM.toFixed(0),
     });
   }));
 

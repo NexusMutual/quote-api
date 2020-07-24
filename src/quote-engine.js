@@ -13,6 +13,7 @@ const CONTRACT_CAPACITY_LIMIT_PERCENT = Decimal('0.2');
 const COVER_PRICE_SURPLUS_MARGIN = Decimal('0.3');
 
 class QuoteEngine {
+
   /**
    * @param {NexusContractLoader} nexusContractLoader
    * @param {string} privateKey
@@ -26,7 +27,7 @@ class QuoteEngine {
   }
 
   /**
-   * Min [Staked NXM x NXM PriceETH, maxCapacityPerContract]
+   * Min [ Max(0, Staked NXM x NXM PriceETH - ActiveCovers ETH) , MaxCapacityPerContract]
    *
    * @param {Decimal} stakedNxm
    * @param {Decimal} nxmPriceEth
@@ -73,25 +74,27 @@ class QuoteEngine {
    * @return {Decimal} Net Staked NXM amount as decimal.js instance
    */
   async getNetStakedNxm (contractAddress) {
+
     const [stakedNxmBN, firstUnprocessedUnstake, unstakeRequests] = await Promise.all([
       this.pooledStaking.contractStake(contractAddress),
       this.getFirstUnprocessedUnstake(),
       this.getUnstakeRequests(contractAddress),
     ]);
-    const stakedNxm = Decimal(stakedNxmBN.toString());
+
     const totalUnprocessedUnstakeBN = unstakeRequests
       .filter(e => e.unstakeAt.toNumber() >= firstUnprocessedUnstake.unstakeAt.toNumber())
       .map(e => e.amount)
       .reduce((a, b) => a.add(b), new BN('0'));
+
     const totalUnprocessedUnstake = Decimal(totalUnprocessedUnstakeBN.toString());
-    const netStakedNxm = stakedNxm.sub(totalUnprocessedUnstake);
-    return netStakedNxm;
+    const stakedNxm = Decimal(stakedNxmBN.toString());
+
+    return stakedNxm.sub(totalUnprocessedUnstake);
   }
 
   async getFirstUnprocessedUnstake () {
     const headPointer = await this.pooledStaking.unstakeRequests(0);
-    const firstUnprocessed = await this.pooledStaking.unstakeRequests(headPointer.next);
-    return firstUnprocessed;
+    return this.pooledStaking.unstakeRequests(headPointer.next);
   }
 
   /**
@@ -101,6 +104,7 @@ class QuoteEngine {
    * @return {Decimal} Pending unstaked NXM amount as decimal.js instance
    */
   async getUnstakeRequests (contractAddress) {
+
     const ASSUMED_BLOCK_TIME = 15;
     const UNSTAKE_PROCESSING_DAYS = 90;
     const BUFFER_DAYS = 30;
@@ -109,6 +113,7 @@ class QuoteEngine {
     const block = await this.web3.eth.getBlock('latest');
     const fromBlock = block.number - blocksBack;
     const events = await this.pooledStaking.getPastEvents('UnstakeRequested', { fromBlock, filter: { contractAddress } });
+
     return events.map(e => e.args);
   }
 
@@ -151,18 +156,18 @@ class QuoteEngine {
    * @return {[{ contractAddress: string, sumAssured: Decimal, currency: string }]}
    */
   static async getActiveCovers (contractAddress, now) {
+
     const storedActiveCovers = await Cover.find({
       expirytimeStamp: { $gt: now.getTime() / 1000 },
       lockCN: { $ne: '0' },
       smartContractAdd: contractAddress.toLowerCase(),
     });
-    return storedActiveCovers.map(stored => {
-      return {
-        contractAddress: stored.smartContractAdd,
-        sumAssured: stored.sumAssured,
-        currency: stored.curr
-      }
-    });
+
+    return storedActiveCovers.map(stored => ({
+      contractAddress: stored.smartContractAdd,
+      sumAssured: stored.sumAssured,
+      currency: stored.curr,
+    }));
   }
 
   /**
@@ -177,8 +182,7 @@ class QuoteEngine {
     }
 
     if (currency === 'DAI') {
-      const daiRate = await this.getDaiRate();
-      return daiRate;
+      return this.getDaiRate();
     }
 
     throw new Error(`Unsupported currency ${currency}`);
@@ -189,10 +193,13 @@ class QuoteEngine {
    * @return {Promise<object>}
    */
   async getCurrencyRates () {
+
     const rates = {};
+
     await Promise.all(['ETH', 'DAI'].map(async currency => {
       rates[currency] = await this.getCurrencyRate(currency);
     }));
+
     return rates;
   }
 
@@ -204,7 +211,9 @@ class QuoteEngine {
    * @return {{ v: number, r: string, s: string }}
    */
   static signQuote (quotationData, quotationContractAddress, privateKeyString) {
+
     const currency = '0x' + Buffer.from(quotationData.currency, 'utf8').toString('hex');
+
     const orderParts = [
       { value: decimalToBN(quotationData.amount), type: 'uint' },
       { value: currency, type: 'bytes4' },
@@ -223,6 +232,7 @@ class QuoteEngine {
     const msgHash = util.hashPersonalMessage(message);
     const privateKey = Buffer.from(privateKeyString, 'hex');
     const sig = util.ecsign(msgHash, privateKey);
+
     return {
       v: sig.v,
       r: '0x' + util.toUnsigned(util.fromSigned(sig.r)).toString('hex'),
@@ -284,13 +294,12 @@ class QuoteEngine {
 
     const maxCapacity = QuoteEngine.calculateCapacity(netStakedNxm, nxmPrice, minCapETH, activeCovers, currencyRates);
     const requestedCoverAmountInWei = requestedCoverAmount.mul(coverCurrencyRate);
+
     // limit cover amount by maxCapacity
     const finalCoverAmountInWei = utils.min(maxCapacity, requestedCoverAmountInWei);
 
     const risk = this.calculateRisk(netStakedNxm);
-
     const quotePriceInWei = QuoteEngine.calculatePrice(finalCoverAmountInWei, risk, COVER_PRICE_SURPLUS_MARGIN, period);
-
     const quotePriceInCoverCurrencyWei = quotePriceInWei.div(coverCurrencyRate).mul('1e18');
     const quotePriceInNxmWei = quotePriceInWei.div(nxmPrice).mul('1e18');
     const finalCoverInCoverCurrency = finalCoverAmountInWei.div(coverCurrencyRate);
@@ -322,8 +331,7 @@ class QuoteEngine {
     const uncappedRiskCost = STAKED_HIGH_RISK_COST
       .mul(Decimal(1).sub(netStakedNxm.div(LOW_RISK_COST_LIMIT_NXM).pow(exponent)));
 
-    const riskCost = utils.max(STAKED_LOW_RISK_COST, uncappedRiskCost);
-    return riskCost;
+    return utils.max(STAKED_LOW_RISK_COST, uncappedRiskCost);
   }
 
   /**
@@ -394,26 +402,32 @@ class QuoteEngine {
 
   /**
    * @param {string} contractAddress
-   * @return {Decimal}
+   * @return {{ capacityETH: Decimal, capacityDAI: Decimal, netStakedNXM: Decimal }}
    */
   async getCapacity (contractAddress) {
+
     const now = new Date();
     const activeCovers = await QuoteEngine.getActiveCovers(contractAddress, now);
-    const [netStakedNxm, minCapETH, nxmPrice, currencyRates] = await Promise.all([
+    const [netStakedNXM, minCapETH, nxmPrice, currencyRates] = await Promise.all([
       this.getNetStakedNxm(contractAddress),
       this.getLastMcrEth(),
       this.getTokenPrice(),
       this.getCurrencyRates(),
     ]);
+
     log.info(`Detected ${activeCovers.length} active covers.`);
-    log.info(JSON.stringify({
-      netStakedNxm, minCapETH, nxmPrice, currencyRates
-    }));
-    const maxCapacity = QuoteEngine.calculateCapacity(netStakedNxm, nxmPrice, minCapETH, activeCovers, currencyRates);
-    log.info(`Computed capacity for ${contractAddress}: ${maxCapacity.toFixed()}`);
+    log.info(JSON.stringify({ netStakedNXM, minCapETH, nxmPrice, currencyRates }));
+
+    const capacityETH = QuoteEngine.calculateCapacity(netStakedNXM, nxmPrice, minCapETH, activeCovers, currencyRates);
+    log.info(`Computed capacity for ${contractAddress}: ${capacityETH.toFixed()}`);
+
+    const daiRate = currencyRates['DAI'];
+    const capacityDAI = capacityETH.div(daiRate);
+
     return {
-      capacity: maxCapacity,
-      netStakedNxm
+      capacityETH,
+      capacityDAI,
+      netStakedNXM,
     };
   }
 
@@ -437,14 +451,12 @@ class QuoteEngine {
         .required(),
     });
 
-    const validated = quoteSchema.validate({
+    return quoteSchema.validate({
       contractAddress,
       coverAmount,
       currency,
       period,
     });
-
-    return validated;
   }
 
   static validateCapacityParameters (contractAddress) {
