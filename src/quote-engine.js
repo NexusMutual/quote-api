@@ -27,7 +27,7 @@ class QuoteEngine {
   }
 
   /**
-   * Min [Staked NXM x NXM PriceETH, maxCapacityPerContract]
+   * Min [ Max(0, Staked NXM x NXM PriceETH - ActiveCovers ETH) , MaxCapacityPerContract]
    *
    * @param {Decimal} stakedNxm
    * @param {Decimal} nxmPriceEth
