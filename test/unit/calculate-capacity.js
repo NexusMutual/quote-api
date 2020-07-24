@@ -2,7 +2,6 @@ const assert = require('assert');
 const Decimal = require('decimal.js');
 const { to2Decimals } = require('./testing-utils');
 const QuoteEngine = require('../../src/quote-engine');
-const ActiveCover = require('../../src/active-cover');
 
 describe('calculateCapacity()', function () {
   it('calculates capacity correctly', function () {
@@ -13,8 +12,8 @@ describe('calculateCapacity()', function () {
     const minCapETH = Decimal(13500).mul('1e18');
 
     const activeCovers = [
-      new ActiveCover('', '200', 'ETH'),
-      new ActiveCover('', Decimal('100').mul(ethDAIRate), 'DAI'),
+      { sumAssured: Decimal('200'), currency: 'ETH' },
+      { sumAssured: Decimal('100').mul(ethDAIRate), currency: 'DAI' },
     ];
     const currencyRates = {
       ETH: Decimal('1e18'),

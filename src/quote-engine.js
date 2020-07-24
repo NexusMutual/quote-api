@@ -7,7 +7,6 @@ const utils = require('./utils');
 const { hex } = require('./utils');
 const log = require('./log');
 const SmartCoverDetails = require('./models/smart-cover-details');
-const ActiveCover = require('./active-cover');
 
 const DAYS_PER_YEAR = Decimal('365.25');
 const CONTRACT_CAPACITY_LIMIT_PERCENT = Decimal('0.2');
@@ -32,7 +31,7 @@ class QuoteEngine {
    * @param {Decimal} stakedNxm
    * @param {Decimal} nxmPriceEth
    * @param {Decimal} minCapETH
-   * @param {[ActiveCover]} activeCovers
+   * @param {[object]} activeCovers
    * @param {object} currencyRates
    * @return {Decimal}
    */
@@ -145,14 +144,24 @@ class QuoteEngine {
     return Decimal(daiRate.toString());
   }
 
-  async getActiveCovers (contractAddress, now) {
+  /**
+   * Fetches List of active covers for contract at time 'now'.
+   * @param {string} contractAddress
+   * @param {Date} now
+   * @return {[{ contractAddress: string, sumAssured: Decimal, currency: string }]}
+   */
+  static async getActiveCovers (contractAddress, now) {
     const storedActiveCovers = await SmartCoverDetails.find({
       expirytimeStamp: { $gt: now.getTime() / 1000 },
       lockCN: { $ne: '0' },
       smartContractAdd: contractAddress.toLowerCase(),
     });
     return storedActiveCovers.map(stored => {
-      return new ActiveCover(stored.smartContractAdd, stored.sumAssured, stored.curr);
+      return {
+        contractAddress: stored.smartContractAdd,
+        sumAssured: stored.sumAssured,
+        currency: stored.curr
+      }
     });
   }
 
@@ -177,8 +186,7 @@ class QuoteEngine {
 
   /**
    * Returns amount of ether wei for 1 currency unit
-   * @param {[]string]} currencies
-   * @return {Promise<objec>}
+   * @return {Promise<object>}
    */
   async getCurrencyRates () {
     const rates = {};
@@ -226,11 +234,10 @@ class QuoteEngine {
    * @param {Decimal} requestedCoverAmount Amount user wants to cover in cover currency, ex: 100
    * @param {number} period Cover period in days
    * @param {String} currency Ex: "ETH" or "DAI"
-   * @param {Decimal} coverCurrencyRate Amount of wei for 1 cover currency unit
    * @param {Decimal} nxmPrice Amount of wei for 1 NXM
    * @param {Decimal} netStakedNxm
    * @param {Decimal} minCapETH
-   * @param {[ActiveCover]} activeCovers
+   * @param {[{ contractAddress: string, sumAssured: Decimal, currency: string }]} activeCovers
    * @param {object} currencyRates
    * @param {Date} now
    *
@@ -324,7 +331,7 @@ class QuoteEngine {
    * @param {string} coverAmount Requested cover amount (might differ from offered cover amount)
    * @param {string} currency
    * @param {string} period
-   * @return {object|null}
+   * @return {object}
    */
   async getQuote (contractAddress, coverAmount, currency, period) {
     const { error } = QuoteEngine.validateQuoteParameters(contractAddress, coverAmount, currency, period);
@@ -338,7 +345,7 @@ class QuoteEngine {
     const amount = Decimal(coverAmount);
     const now = new Date();
 
-    const activeCovers = await this.getActiveCovers(lowerCasedContractAddress, now);
+    const activeCovers = await QuoteEngine.getActiveCovers(lowerCasedContractAddress, now);
 
     const [currencyRates, nxmPrice, netStakedNxm, minCapETH] = await Promise.all([
       this.getCurrencyRates(),
@@ -391,7 +398,7 @@ class QuoteEngine {
    */
   async getCapacity (contractAddress) {
     const now = new Date();
-    const activeCovers = await this.getActiveCovers(contractAddress, now);
+    const activeCovers = await QuoteEngine.getActiveCovers(contractAddress, now);
     const [netStakedNxm, minCapETH, nxmPrice, currencyRates] = await Promise.all([
       this.getNetStakedNxm(contractAddress),
       this.getLastMcrEth(),

@@ -2,7 +2,7 @@ const assert = require('assert');
 const Decimal = require('decimal.js');
 const { to2Decimals } = require('./testing-utils');
 const QuoteEngine = require('../../src/quote-engine');
-const ActiveCover = require('../../src/active-cover');
+
 
 describe('calculateQuote()', function () {
   describe('respects input values and returns correct timestamps', function () {
@@ -132,8 +132,8 @@ describe('calculateQuote()', function () {
       const expectedPriceInNXM = Decimal('5327.78').mul('1e18');
       const expectedCoverAmountOffered = amount;
       const activeCovers = [
-        new ActiveCover('', Decimal('500'), 'ETH'),
-        new ActiveCover('', Decimal('500').mul(ethDAIRate), 'DAI'),
+        { sumAssured: Decimal('500'), currency: 'ETH' },
+        { sumAssured: Decimal('500').mul(ethDAIRate), currency: 'DAI' },
       ];
       assertETHAndNXMPrices(amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered);
     });
