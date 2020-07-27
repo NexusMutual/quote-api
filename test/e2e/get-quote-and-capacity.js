@@ -2,6 +2,7 @@ require('dotenv').config();
 const assert = require('assert');
 const request = require('supertest');
 const fetch = require('node-fetch');
+const Decimal = require('decimal.js');
 const { initApp } = require('../../src/app');
 const { ApiKey, Cover } = require('../../src/models');
 const { covers } = require('./smarcoverdetails-test-data');
@@ -67,7 +68,7 @@ describe('GET quotes', function () {
 
   afterEach(async function () {
     try {
-      await SmartCoverDetails.collection.drop();
+      await Cover.collection.drop();
     } catch (e) {
       console.log(`Error in afterEach: ${e}`);
     }
@@ -78,10 +79,14 @@ describe('GET quotes', function () {
       const contractAddress = '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B';
       const smartCoverDetailsList = covers();
       smartCoverDetailsList.forEach(cover => {
+        // eslint-disable-next-line
         cover.smartContractAdd = contractAddress;
       });
       await Cover.insertMany(smartCoverDetailsList);
-      const { status } = await requestCapacity(contractAddress);
+      const { status, body } = await requestCapacity(contractAddress);
+      assert(Decimal(body.capacityETH).isInteger());
+      assert(Decimal(body.capacityDAI).isInteger());
+      assert(Decimal(body.netStakedNXM).isInteger());
       assert.strictEqual(status, 200);
     });
   });
@@ -94,6 +99,7 @@ describe('GET quotes', function () {
       const contractAddress = '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B';
       const smartCoverDetailsList = covers();
       smartCoverDetailsList.forEach(cover => {
+        // eslint-disable-next-line
         cover.smartContractAdd = contractAddress;
       });
       await Cover.insertMany(smartCoverDetailsList);
@@ -108,10 +114,10 @@ describe('GET quotes', function () {
       assert.strictEqual(body.smartCA.toLowerCase(), contractAddress.toLowerCase());
       assert.strictEqual(body.coverPeriod, period.toString());
       assert.strictEqual(body.reason, 'ok');
-      assert.strictEqual(isNaN(parseInt(body.coverCurrPrice)), false);
-      assert.strictEqual(isNaN(parseInt(body.PriceNxm)), false);
-      assert.strictEqual(Number.isInteger(body.expireTime), true);
-      assert.strictEqual(Number.isInteger(body.generationTime), true);
+      assert(Decimal(body.coverCurrPrice).isInteger());
+      assert(Decimal(body.PriceNxm).isInteger());
+      assert(Number.isInteger(body.expireTime));
+      assert(Number.isInteger(body.generationTime));
     });
   });
 
@@ -123,6 +129,7 @@ describe('GET quotes', function () {
       const contractAddress = '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B';
       const smartCoverDetailsList = covers();
       smartCoverDetailsList.forEach(cover => {
+        // eslint-disable-next-line
         cover.smartContractAdd = contractAddress;
       });
       await Cover.insertMany(smartCoverDetailsList);
@@ -133,10 +140,10 @@ describe('GET quotes', function () {
       assert.strictEqual(body.amount, coverAmount);
       assert.strictEqual(body.contract.toLowerCase(), contractAddress.toLowerCase());
       assert.strictEqual(body.period, period.toString());
-      assert.strictEqual(isNaN(parseInt(body.price)), false);
-      assert.strictEqual(isNaN(parseInt(body.priceInNXM)), false);
-      assert.strictEqual(isNaN(parseInt(body.expiresAt)), false);
-      assert.strictEqual(isNaN(parseInt(body.generatedAt)), false);
+      assert(Decimal(body.price).isInteger());
+      assert(Decimal(body.priceInNXM).isInteger());
+      assert(Decimal(body.expiresAt).isInteger());
+      assert(Decimal(body.generatedAt).isInteger());
     });
 
     it('responds with a valid quote for a production contract for DAI', async function () {
@@ -146,6 +153,7 @@ describe('GET quotes', function () {
       const contractAddress = '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B';
       const smartCoverDetailsList = covers();
       smartCoverDetailsList.forEach(cover => {
+        // eslint-disable-next-line
         cover.smartContractAdd = contractAddress;
       });
       await Cover.insertMany(smartCoverDetailsList);
@@ -158,8 +166,8 @@ describe('GET quotes', function () {
       assert.strictEqual(parseInt(body.period), period);
       assert.strictEqual(isNaN(parseInt(body.price)), false);
       assert.strictEqual(isNaN(parseInt(body.priceInNXM)), false);
-      assert.strictEqual(isNaN(parseInt(body.expiresAt)), false);
-      assert.strictEqual(isNaN(parseInt(body.generatedAt)), false);
+      assert(Decimal(body.expiresAt).isInteger());
+      assert(Decimal(body.generatedAt).isInteger());
     });
 
     it('responds with 400 for a non-whitelisted contract', async function () {

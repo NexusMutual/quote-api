@@ -42,6 +42,7 @@ class QuoteEngine {
     const activeCoversEthValues = activeCovers.map(cover => currencyRates[cover.currency].mul(cover.sumAssured));
     const activeCoversSumEthValue = activeCoversEthValues.reduce((a, b) => a.add(b), Decimal(0));
     const contractCapacity = utils.max(stakedNxmEthValue.sub(activeCoversSumEthValue), Decimal(0));
+
     return utils.min(contractCapacity, maxGlobalCapacityPerContract);
   }
 
@@ -292,7 +293,9 @@ class QuoteEngine {
       };
     }
 
-    const maxCapacity = QuoteEngine.calculateCapacity(netStakedNxm, nxmPrice, minCapETH, activeCovers, currencyRates);
+    const maxCapacity = QuoteEngine.calculateCapacity(
+      netStakedNxm, nxmPrice, minCapETH, activeCovers, currencyRates,
+    );
     const requestedCoverAmountInWei = requestedCoverAmount.mul(coverCurrencyRate);
 
     // limit cover amount by maxCapacity
@@ -422,7 +425,7 @@ class QuoteEngine {
     log.info(`Computed capacity for ${contractAddress}: ${capacityETH.toFixed()}`);
 
     const daiRate = currencyRates['DAI'];
-    const capacityDAI = capacityETH.div(daiRate);
+    const capacityDAI = capacityETH.div(daiRate).mul('1e18');
 
     return {
       capacityETH,
