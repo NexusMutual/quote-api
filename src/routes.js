@@ -5,7 +5,7 @@ const log = require('./log');
 const QuoteEngine = require('./quote-engine');
 const { getWhitelist } = require('./contract-whitelist');
 const httpContext = require('express-http-context');
-const { QuoteStatus } = require('./enums');
+const { toLegacyFormatResponse } = require('./legacy-formatting');
 
 const asyncRoute = route => (req, res) => {
   route(req, res).catch(e => {
@@ -171,7 +171,7 @@ module.exports = quoteEngine => {
       period,
     );
 
-    res.send(toLegacyFormatResponse(quote));
+    res.send(toLegacyFormatResponse(quote, coverAmount));
   }));
 
   return app;
@@ -192,25 +192,6 @@ async function isOriginAllowed (origin, apiKey) {
   return storedApiKey !== null;
 }
 
-function toLegacyFormatResponse (r) {
-  const legacyResponse = {
-    coverCurr: r.currency,
-    coverPeriod: r.period.toString(),
-    smartCA: r.contract,
-    coverAmount: parseInt(r.amount.toFixed(0)),
-    coverCurrPrice: r.price.toFixed(0),
-    PriceNxm: r.priceInNXM.toFixed(0),
-    expireTime: r.expiresAt,
-    generationTime: r.generatedAt,
-    reason: r.status,
-    v: r.v,
-    r: r.r,
-    s: r.s,
-  };
-
-  return legacyResponse;
-}
-
 function prettyPrintResponse (r) {
   const prettyResponse = {
     ...r,
@@ -219,10 +200,5 @@ function prettyPrintResponse (r) {
     priceInNXM: r.priceInNXM.toFixed(0),
     period: r.period.toString(),
   };
-
-  if (prettyResponse.status === QuoteStatus.UNCOVERABLE) {
-    prettyResponse.error = 'Uncoverable';
-  }
-  delete prettyResponse.status;
   return prettyResponse;
 }

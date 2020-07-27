@@ -2,7 +2,6 @@ const assert = require('assert');
 const Decimal = require('decimal.js');
 const { to2Decimals } = require('./testing-utils');
 const QuoteEngine = require('../../src/quote-engine');
-const { CapacityLimit } = require('./enums');
 
 describe('calculateCapacity()', function () {
   it('calculates capacity correctly', function () {
@@ -20,8 +19,7 @@ describe('calculateCapacity()', function () {
       ETH: Decimal('1e18'),
       DAI: Decimal('1e18').div(ethDAIRate),
     };
-    const { value: capacity, limit } = QuoteEngine.calculateCapacity(stakedNxm, nxmPrice, minCapETH, activeCovers, currencyRates);
+    const capacity = QuoteEngine.calculateCapacity(stakedNxm, nxmPrice, minCapETH, activeCovers, currencyRates);
     assert.strictEqual(to2Decimals(capacity), '1760.09');
-    assert.strictEqual(limit, CapacityLimit.CONTRACT_LIMIT);
   });
 });

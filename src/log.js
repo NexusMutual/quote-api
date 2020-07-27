@@ -1,7 +1,7 @@
 const httpContext = require('express-http-context');
 const winston = require('winston');
 
-const requestIdFormat = winston.format((info, opts) => {
+const requestIdFormat = winston.format((info) => {
   const reqId = httpContext.get('reqId');
   return { ...info, reqId };
 });
