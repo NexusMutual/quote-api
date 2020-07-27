@@ -7,6 +7,11 @@ const utils = require('./utils');
 const { hex } = require('./utils');
 const log = require('./log');
 const Cover = require('./models/cover');
+const {
+  QuoteStatus,
+  CapacityLimit,
+  capacityLimitToQuoteStatus,
+} = require('./enums');
 
 const DAYS_PER_YEAR = Decimal('365.25');
 const CONTRACT_CAPACITY_LIMIT_PERCENT = Decimal('0.2');
@@ -42,7 +47,17 @@ class QuoteEngine {
     const activeCoversEthValues = activeCovers.map(cover => currencyRates[cover.currency].mul(cover.sumAssured));
     const activeCoversSumEthValue = activeCoversEthValues.reduce((a, b) => a.add(b), Decimal(0));
     const contractCapacity = utils.max(stakedNxmEthValue.sub(activeCoversSumEthValue), Decimal(0));
-    return utils.min(contractCapacity, maxGlobalCapacityPerContract);
+
+    if (contractCapacity.gt(maxGlobalCapacityPerContract)) {
+      return {
+        value: maxGlobalCapacityPerContract,
+        limit: CapacityLimit.GLOBAL_LIMIT,
+      };
+    }
+    return {
+      value: contractCapacity,
+      limit: CapacityLimit.CONTRACT_LIMIT,
+    };
   }
 
   /**
@@ -286,17 +301,23 @@ class QuoteEngine {
 
     if (netStakedNxm.eq(0)) {
       return {
-        error: 'Uncoverable',
+        status: 'Uncoverable',
         generatedAt,
         expiresAt,
       };
     }
 
-    const maxCapacity = QuoteEngine.calculateCapacity(netStakedNxm, nxmPrice, minCapETH, activeCovers, currencyRates);
+    const { value: maxCapacity, limit: capacityLimit } = QuoteEngine.calculateCapacity(
+      netStakedNxm, nxmPrice, minCapETH, activeCovers, currencyRates,
+    );
     const requestedCoverAmountInWei = requestedCoverAmount.mul(coverCurrencyRate);
 
     // limit cover amount by maxCapacity
     const finalCoverAmountInWei = utils.min(maxCapacity, requestedCoverAmountInWei);
+    let status = QuoteStatus.OK;
+    if (finalCoverAmountInWei.eq(maxCapacity)) {
+      status = capacityLimitToQuoteStatus(capacityLimit);
+    }
 
     const risk = this.calculateRisk(netStakedNxm);
     const quotePriceInWei = QuoteEngine.calculatePrice(finalCoverAmountInWei, risk, COVER_PRICE_SURPLUS_MARGIN, period);
@@ -312,6 +333,7 @@ class QuoteEngine {
       priceInNXM: quotePriceInNxmWei,
       expiresAt,
       generatedAt,
+      status,
     };
   }
 
@@ -418,11 +440,11 @@ class QuoteEngine {
     log.info(`Detected ${activeCovers.length} active covers.`);
     log.info(JSON.stringify({ netStakedNXM, minCapETH, nxmPrice, currencyRates }));
 
-    const capacityETH = QuoteEngine.calculateCapacity(netStakedNXM, nxmPrice, minCapETH, activeCovers, currencyRates);
+    const { value: capacityETH } = QuoteEngine.calculateCapacity(netStakedNXM, nxmPrice, minCapETH, activeCovers, currencyRates);
     log.info(`Computed capacity for ${contractAddress}: ${capacityETH.toFixed()}`);
 
     const daiRate = currencyRates['DAI'];
-    const capacityDAI = capacityETH.div(daiRate);
+    const capacityDAI = capacityETH.div(daiRate).mul('1e18');
 
     return {
       capacityETH,

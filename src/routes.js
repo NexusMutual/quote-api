@@ -5,6 +5,7 @@ const log = require('./log');
 const QuoteEngine = require('./quote-engine');
 const { getWhitelist } = require('./contract-whitelist');
 const httpContext = require('express-http-context');
+const { QuoteStatus } = require('./enums');
 
 const asyncRoute = route => (req, res) => {
   route(req, res).catch(e => {
@@ -118,7 +119,7 @@ module.exports = quoteEngine => {
     res.send({
       capacityETH: capacityETH.toFixed(0),
       capacityDAI: capacityDAI.toFixed(0),
-      netstakeNXM: netStakedNXM.toFixed(0),
+      netStakedNXM: netStakedNXM.toFixed(0),
     });
   }));
 
@@ -170,7 +171,7 @@ module.exports = quoteEngine => {
       period,
     );
 
-    res.send(toLegacyFormatResponse(prettyPrintResponse(quote)));
+    res.send(toLegacyFormatResponse(quote));
   }));
 
   return app;
@@ -194,33 +195,34 @@ async function isOriginAllowed (origin, apiKey) {
 function toLegacyFormatResponse (r) {
   const legacyResponse = {
     coverCurr: r.currency,
-    coverPeriod: r.period,
+    coverPeriod: r.period.toString(),
     smartCA: r.contract,
-    coverAmount: parseInt(r.amount),
-    coverCurrPrice: r.price,
-    PriceNxm: r.priceInNXM,
+    coverAmount: parseInt(r.amount.toFixed(0)),
+    coverCurrPrice: r.price.toFixed(0),
+    PriceNxm: r.priceInNXM.toFixed(0),
     expireTime: r.expiresAt,
     generationTime: r.generatedAt,
+    reason: r.status,
     v: r.v,
     r: r.r,
     s: r.s,
   };
 
-  if (!r.error) {
-    legacyResponse.reason = 'ok';
-  } else {
-    legacyResponse.reason = r.error;
-  }
-
   return legacyResponse;
 }
 
 function prettyPrintResponse (r) {
-  return {
+  const prettyResponse = {
     ...r,
     amount: r.amount.toFixed(0),
     price: r.price.toFixed(0),
     priceInNXM: r.priceInNXM.toFixed(0),
     period: r.period.toString(),
   };
+
+  if (prettyResponse.status === QuoteStatus.UNCOVERABLE) {
+    prettyResponse.error = 'Uncoverable';
+  }
+  delete prettyResponse.status;
+  return prettyResponse;
 }

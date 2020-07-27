@@ -2,7 +2,7 @@ const assert = require('assert');
 const Decimal = require('decimal.js');
 const { to2Decimals } = require('./testing-utils');
 const QuoteEngine = require('../../src/quote-engine');
-
+const { QuoteStatus } = require('../../src/enums');
 
 describe('calculateQuote()', function () {
   describe('respects input values and returns correct timestamps', function () {
@@ -21,9 +21,12 @@ describe('calculateQuote()', function () {
       DAI: Decimal('1e18').div(ethDAIRate),
     };
 
-    const quoteData = QuoteEngine.calculateQuote(
-      amount, period, currency, nxmPrice, stakedNxm, minCapETH, activeCovers, currencyRates, now,
-    );
+    let quoteData;
+    it('calculates quoteData succesfully', function () {
+      quoteData = QuoteEngine.calculateQuote(
+        amount, period, currency, nxmPrice, stakedNxm, minCapETH, activeCovers, currencyRates, now,
+      );
+    });
 
     it('returns a cover amount less or equal to the requested amount', function () {
       assert.strict(quoteData.amount.lte(amount));
@@ -44,6 +47,10 @@ describe('calculateQuote()', function () {
     it('returns correct expiration time', function () {
       assert.strictEqual(Math.ceil(now.getTime() / 1000 + 3600), quoteData.expiresAt);
     });
+
+    it('returns correct status', function () {
+      assert.strictEqual(QuoteStatus.OK, quoteData.status);
+    });
   });
 
   describe('calculates ETH quotes correctly', function () {
@@ -59,7 +66,9 @@ describe('calculateQuote()', function () {
       DAI: Decimal('1e18').div(ethDAIRate),
     };
 
-    function assertETHAndNXMPrices (amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered) {
+    function assertETHAndNXMPrices (
+      amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered, status,
+    ) {
 
       const quoteData = QuoteEngine.calculateQuote(
         amount, period, currency, nxmPrice, stakedNxm, minCapETH, activeCovers, currencyRates, now,
@@ -76,6 +85,8 @@ describe('calculateQuote()', function () {
         to2Decimals(quoteData.amount),
         to2Decimals(expectedCoverAmountOffered),
       );
+
+      assert.strictEqual(quoteData.status, status);
     }
 
     it('returns the cover price in ETH and NXM for 1000 cover and no current active covers', function () {
@@ -86,7 +97,9 @@ describe('calculateQuote()', function () {
       const expectedPriceInNXM = Decimal('5329.22').mul('1e18');
       const expectedCoverAmountOffered = amount;
       const activeCovers = [];
-      assertETHAndNXMPrices(amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered);
+      assertETHAndNXMPrices(
+        amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered, QuoteStatus.OK,
+      );
     });
 
     it('returns the cover price in ETH and NXM for 230 cover and no current active covers', function () {
@@ -97,7 +110,9 @@ describe('calculateQuote()', function () {
       const expectedPriceInNXM = Decimal('47.68').mul('1e18');
       const expectedCoverAmountOffered = amount;
       const activeCovers = [];
-      assertETHAndNXMPrices(amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered);
+      assertETHAndNXMPrices(
+        amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered, QuoteStatus.OK,
+      );
     });
 
     it('returns the cover price in ETH and NXM for 5000 cover exceeding global capacity', function () {
@@ -108,7 +123,9 @@ describe('calculateQuote()', function () {
       const expectedPriceInNXM = Decimal('2044.58').mul('1e18');
       const expectedCoverAmountOffered = Decimal('2700');
       const activeCovers = [];
-      assertETHAndNXMPrices(amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered);
+      assertETHAndNXMPrices(
+        amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered, QuoteStatus.MCR_EXCEEDED,
+      );
     });
 
     it(`returns 'uncoverable' for 0 stake`, function () {
@@ -119,7 +136,7 @@ describe('calculateQuote()', function () {
       const quoteData = QuoteEngine.calculateQuote(
         amount, period, currency, nxmPrice, stakedNxm, minCapETH, activeCovers, currencyRates, now,
       );
-      assert.strictEqual(quoteData.error, 'Uncoverable');
+      assert.strictEqual(quoteData.status, QuoteStatus.UNCOVERABLE);
       assert.strictEqual(now.getTime(), quoteData.generatedAt);
       assert.strictEqual(Math.ceil(now.getTime() / 1000 + 3600), quoteData.expiresAt);
     });
@@ -135,7 +152,9 @@ describe('calculateQuote()', function () {
         { sumAssured: Decimal('500'), currency: 'ETH' },
         { sumAssured: Decimal('500').mul(ethDAIRate), currency: 'DAI' },
       ];
-      assertETHAndNXMPrices(amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered);
+      assertETHAndNXMPrices(
+        amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered, QuoteStatus.OK,
+      );
     });
   });
 
@@ -179,7 +198,9 @@ describe('calculateQuote()', function () {
       const expectedPriceInDAI = Decimal('12217.39').mul('1e18');
       const expectedPriceInNXM = Decimal('3054.35').mul('1e18');
       const expectedCoverAmountOffered = Decimal('629100');
-      assertETHAndNXMPrices(amount, period, stakedNxm, expectedPriceInDAI, expectedPriceInNXM, expectedCoverAmountOffered);
+      assertETHAndNXMPrices(
+        amount, period, stakedNxm, expectedPriceInDAI, expectedPriceInNXM, expectedCoverAmountOffered, QuoteStatus.MCR_EXCEEDED,
+      );
     });
 
     it('returns the cover price in DAI and NXM for 50000 cover', function () {
@@ -189,7 +210,9 @@ describe('calculateQuote()', function () {
       const expectedPriceInDAI = Decimal('13351.17').mul('1e18');
       const expectedPriceInNXM = Decimal('3337.79').mul('1e18');
       const expectedCoverAmountOffered = amount;
-      assertETHAndNXMPrices(amount, period, stakedNxm, expectedPriceInDAI, expectedPriceInNXM, expectedCoverAmountOffered);
+      assertETHAndNXMPrices(
+        amount, period, stakedNxm, expectedPriceInDAI, expectedPriceInNXM, expectedCoverAmountOffered, QuoteStatus.OK,
+      );
     });
 
     it('returns the cover price in DAI and NXM for 150000 cover exceeding staking capacity limit', function () {
@@ -199,7 +222,9 @@ describe('calculateQuote()', function () {
       const expectedPriceInDAI = Decimal('7981.57').mul('1e18');
       const expectedPriceInNXM = Decimal('1995.39').mul('1e18');
       const expectedCoverAmountOffered = Decimal('80000');
-      assertETHAndNXMPrices(amount, period, stakedNxm, expectedPriceInDAI, expectedPriceInNXM, expectedCoverAmountOffered);
+      assertETHAndNXMPrices(
+        amount, period, stakedNxm, expectedPriceInDAI, expectedPriceInNXM, expectedCoverAmountOffered, QuoteStatus.CAPACITY_LIMIT_EXCEEDED,
+      );
     });
   });
 
