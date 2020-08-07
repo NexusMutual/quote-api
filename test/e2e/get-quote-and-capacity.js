@@ -123,6 +123,19 @@ describe('GET quotes', function () {
     });
   });
 
+  describe.only('GET /v1/capacities', async function () {
+    it('responds with 200 when called and  with the correct number of contracts', async function () {
+      const whitelist = await getWhitelist();
+      const expectedCapacitiesLength = Object.keys(whitelist).length;
+      const { status, body } = await request(app)
+        .get(`/v1/capacities`)
+        .set({ 'x-api-key': API_KEY, origin: ORIGIN });
+
+      assert.strictEqual(status, 200);
+      assert.strictEqual(body.length, expectedCapacitiesLength);
+    });
+  });
+
   describe('GET /v1/quote', function () {
     it('responds with a valid quote for a production contract for ETH', async function () {
       const coverAmount = '1000';

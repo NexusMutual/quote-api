@@ -136,6 +136,22 @@ module.exports = quoteEngine => {
     });
   }));
 
+  app.get('/v1/capacities', asyncRoute(async (req, res) => {
+    const origin = req.get('origin');
+    const apiKey = req.headers['x-api-key'];
+    const isAllowed = await isOriginAllowed(origin, apiKey);
+
+    if (!isAllowed) {
+      return res.status(403).send({
+        error: true,
+        message: 'Origin not allowed. Contact us for an API key',
+      });
+    }
+
+    const capacities = await quoteEngine.getCapacities();
+    res.send(capacities);
+  }));
+
   /**
    * legacy endpoint.
    */
