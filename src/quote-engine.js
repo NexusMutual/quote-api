@@ -4,10 +4,12 @@ const util = require('ethereumjs-util');
 const BN = require('bn.js');
 const Joi = require('joi');
 const moment = require('moment');
+const NodeCache = require('node-cache');
 const utils = require('./utils');
 const { hex } = require('./utils');
 const log = require('./log');
 const Cover = require('./models/cover');
+const { getWhitelist } = require('./contract-whitelist');
 
 const DAYS_PER_YEAR = Decimal('365.25');
 const CONTRACT_CAPACITY_LIMIT_PERCENT = Decimal('0.2');
@@ -34,6 +36,8 @@ class QuoteEngine {
       throw new Error(`Invalid capacityFactorEndDate: ${capacityFactorEndDate}. Use format: ${format}`);
     }
     this.capacityFactorEndDate = endMoment.toDate();
+
+    this.capacitiesCache = new NodeCache({ stdTTL: 15, checkperiod: 60 });
   }
 
   /**
@@ -436,6 +440,11 @@ class QuoteEngine {
    */
   async getCapacity (contractAddress, contractData) {
 
+    const cachedCapacity = this.capacitiesCache.get(contractAddress);
+    if (cachedCapacity) {
+      return cachedCapacity;
+    }
+
     const now = new Date();
     const activeCovers = await QuoteEngine.getActiveCovers(contractAddress, now);
     const [netStakedNXM, minCapETH, nxmPrice, currencyRates] = await Promise.all([
@@ -456,11 +465,25 @@ class QuoteEngine {
     const daiRate = currencyRates['DAI'];
     const capacityDAI = capacityETH.div(daiRate).mul('1e18');
 
-    return {
+    const capacity = {
       capacityETH,
       capacityDAI,
       netStakedNXM,
-    };
+    }
+    cache.set(contractAddress, capacity);
+    return capacity;
+  }
+
+  async getCapacities() {
+    const whitelist = await getWhitelist();
+
+    const capacities = await Promise.all(Object.keys(whitelist).map(async contractAddress => {
+      const contractData = whitelist[contractAddress];
+      const capacity = await this.getCapacity(contractAddress, contractData);
+      return {...capacity, contractAddress};
+    }));
+
+    return capacities;
   }
 
   static validateQuoteParameters (contractAddress, coverAmount, currency, period) {
