@@ -123,7 +123,7 @@ describe('GET quotes', function () {
     });
   });
 
-  describe.only('GET /v1/capacities', async function () {
+  describe.skip('GET /v1/capacities', async function () {
     it('responds with 200 when called and  with the correct number of contracts', async function () {
       const whitelist = await getWhitelist();
       const expectedCapacitiesLength = Object.keys(whitelist).length;

@@ -470,7 +470,7 @@ class QuoteEngine {
       capacityDAI,
       netStakedNXM,
     }
-    cache.set(contractAddress, capacity);
+    this.capacitiesCache.set(contractAddress, capacity);
     return capacity;
   }
 
