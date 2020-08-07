@@ -70,7 +70,8 @@ module.exports = quoteEngine => {
       });
     }
     const whitelist = await getWhitelist();
-    if (!whitelist.includes(contractAddress.toLowerCase())) {
+    const contractData = whitelist[contractAddress.toLowerCase()];
+    if (!contractData) {
       const message = `Contract ${contractAddress} not on whitelist`;
       log.error(message);
       return res.status(400).send({
@@ -84,6 +85,7 @@ module.exports = quoteEngine => {
       coverAmount,
       currency,
       period,
+      contractData
     );
 
     res.send(prettyPrintResponse(quote));
@@ -114,7 +116,18 @@ module.exports = quoteEngine => {
       });
     }
 
-    const { capacityDAI, capacityETH, netStakedNXM } = await quoteEngine.getCapacity(contractAddress);
+    const whitelist = await getWhitelist();
+    const contractData = whitelist[contractAddress.toLowerCase()];
+    if (!contractData) {
+      const message = `Contract ${contractAddress} not on whitelist.`;
+      log.error(message);
+      return res.status(400).send({
+        reason: 'Uncoverable',
+        coverAmount: 0,
+      });
+    }
+
+    const { capacityDAI, capacityETH, netStakedNXM } = await quoteEngine.getCapacity(contractAddress, contractData);
 
     res.send({
       capacityETH: capacityETH.toFixed(0),
@@ -155,7 +168,8 @@ module.exports = quoteEngine => {
       });
     }
     const whitelist = await getWhitelist();
-    if (!whitelist.includes(contractAddress.toLowerCase())) {
+    const contractData = whitelist[contractAddress.toLowerCase()];
+    if (!contractData) {
       const message = `Contract ${contractAddress} not on whitelist.`;
       log.error(message);
       return res.status(400).send({
@@ -169,6 +183,7 @@ module.exports = quoteEngine => {
       coverAmount,
       currency,
       period,
+      contractData
     );
 
     res.send(toLegacyFormatResponse(quote, coverAmount));

@@ -6,6 +6,7 @@ const Decimal = require('decimal.js');
 const { initApp } = require('../../src/app');
 const { ApiKey, Cover } = require('../../src/models');
 const { covers } = require('./smarcoverdetails-test-data');
+const { getWhitelist } = require('../../src/contract-whitelist');
 
 const MongoMemoryServer = require('mongodb-memory-server').MongoMemoryServer;
 const mongoose = require('mongoose');
@@ -180,19 +181,19 @@ describe('GET quotes', function () {
     });
 
     it('responds with 200 for all currently whitelisted contracts for ETH and DAI quotes', async function () {
-      const whitelist = [];
-      const data = await fetch('https://api.nexusmutual.io/coverables/contracts.json').then(res => res.json());
-      for (const address of Object.keys(data)) {
-        if (!data[address].deprecated) {
-          data[address] = { ...data[address], address };
-          whitelist.push(data[address]);
+      const whitelistArray = [];
+      const whitelist = await getWhitelist();
+      for (const address of Object.keys(whitelist)) {
+        if (!whitelist[address].deprecated) {
+          whitelist[address] = { ...whitelist[address], address };
+          whitelistArray.push(whitelist[address]);
         }
       }
       const ethCoverAmount = '100';
       const daiCoverAmount = '100';
       const period = 100;
 
-      const chunks = chunk(whitelist, 10);
+      const chunks = chunk(whitelistArray, 10);
       const results = [];
       for (const chunk of chunks) {
 
