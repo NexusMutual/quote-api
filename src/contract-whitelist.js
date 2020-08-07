@@ -20,7 +20,7 @@ async function getWhitelist () {
       }
     }
     cache.set(WHITELIST_KEY, whitelist);
-    log.info(`Fetched and cached whitelist of length: ${whitelist.length}`);
+    log.info(`Fetched and cached whitelist of length: ${Object.keys(whitelist).length}`);
   }
   return whitelist;
 }
