@@ -194,7 +194,7 @@ describe('GET quotes', function () {
       const daiCoverAmount = '100';
       const period = 100;
 
-      const chunks = chunk(whitelistArray, 10);
+      const chunks = chunk(whitelistArray, 1);
       const results = [];
       for (const chunk of chunks) {
 
