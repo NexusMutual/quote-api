@@ -21,7 +21,7 @@ describe('calculateCapacity()', function () {
     };
     const capacityFactor = Decimal('1');
     const capacity = QuoteEngine.calculateCapacity(
-      stakedNxm, nxmPrice, minCapETH, activeCovers, currencyRates, capacityFactor
+      stakedNxm, nxmPrice, minCapETH, activeCovers, currencyRates, capacityFactor,
     );
     assert.strictEqual(to2Decimals(capacity), '1760.09');
   });

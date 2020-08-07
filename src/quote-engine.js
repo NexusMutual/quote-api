@@ -3,6 +3,7 @@ const ethABI = require('ethereumjs-abi');
 const util = require('ethereumjs-util');
 const BN = require('bn.js');
 const Joi = require('joi');
+const moment = require('moment');
 const utils = require('./utils');
 const { hex } = require('./utils');
 const log = require('./log');
@@ -19,13 +20,20 @@ class QuoteEngine {
    * @param {NexusContractLoader} nexusContractLoader
    * @param {string} privateKey
    * @param {Web3} web3
+   * @param {string} capacityFactorEndDate
    */
-  constructor (nexusContractLoader, privateKey, web3, capacityFactorBoostEndDateString) {
+  constructor (nexusContractLoader, privateKey, web3, capacityFactorEndDate) {
     this.nexusContractLoader = nexusContractLoader;
     this.privateKey = privateKey;
     this.web3 = web3;
     this.pooledStaking = this.nexusContractLoader.instance('PS');
-    this.capacityFactorBoostEndDate = new Date(capacityFactorBoostEndDateString);
+
+    const format = 'MM/DD/YYYY';
+    const endMoment = moment(capacityFactorEndDate, format, true);
+    if (!endMoment.isValid()) {
+      throw new Error(`Invalid capacityFactorEndDate: ${capacityFactorEndDate}. Use format: ${format}`);
+    }
+    this.capacityFactorEndDate = endMoment.toDate();
   }
 
   /**
@@ -349,7 +357,7 @@ class QuoteEngine {
    * @return {Decimal} capacity factor
    */
   getCapacityFactor (contractDateAdded) {
-    return contractDateAdded.getTime() < this.capacityFactorBoostEndDate.getTime() ? CAPACITY_FACTOR : Decimal(1);
+    return contractDateAdded.getTime() < this.capacityFactorEndDate.getTime() ? CAPACITY_FACTOR : Decimal(1);
   }
 
   /**

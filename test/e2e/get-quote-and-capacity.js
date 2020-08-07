@@ -60,6 +60,7 @@ describe('GET quotes', function () {
     process.env.NETWORK = 'mainnet';
     process.env.PRIVATE_KEY = '45571723d6f6fa704623beb284eda724459d76cc68e82b754015d6e7af794cc8';
     process.env.MONGO_URL = uri;
+    process.env.CAPACITY_FACTOR_END_DATE = '08/10/2020';
 
     await ApiKey.create({ apiKey: API_KEY, origin: ORIGIN });
 

@@ -31,7 +31,7 @@ describe('calculateQuote()', function () {
     let quoteData;
     it('calculates quoteData succesfully', function () {
       quoteData = QuoteEngine.calculateQuote(
-        amount, period, currency, nxmPrice, stakedNxm, minCapETH, activeCovers, currencyRates, now, capacityFactor
+        amount, period, currency, nxmPrice, stakedNxm, minCapETH, activeCovers, currencyRates, now, capacityFactor,
       );
     });
 
@@ -79,7 +79,7 @@ describe('calculateQuote()', function () {
     ) {
 
       const quoteData = QuoteEngine.calculateQuote(
-        amount, period, currency, nxmPrice, stakedNxm, minCapETH, activeCovers, currencyRates, now, capacityFactor
+        amount, period, currency, nxmPrice, stakedNxm, minCapETH, activeCovers, currencyRates, now, capacityFactor,
       );
       assert.strictEqual(
         to2Decimals(quoteData.price),
@@ -186,7 +186,7 @@ describe('calculateQuote()', function () {
     ) {
 
       const quoteData = QuoteEngine.calculateQuote(
-        amount, period, currency, nxmPrice, stakedNxm, minCapETH, activeCovers, currencyRates, now, capacityFactor
+        amount, period, currency, nxmPrice, stakedNxm, minCapETH, activeCovers, currencyRates, now, capacityFactor,
       );
       assert.strictEqual(
         to2Decimals(quoteData.price),
