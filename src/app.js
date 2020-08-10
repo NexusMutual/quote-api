@@ -13,6 +13,7 @@ async function initApp () {
   const PRIVATE_KEY = getEnv('PRIVATE_KEY');
   const NETWORK = getEnv('NETWORK', 'mainnet');
   const MONGO_URL = getEnv('MONGO_URL', 'mainnet');
+  const CAPACITY_FACTOR_END_DATE = getEnv('CAPACITY_FACTOR_END_DATE', 'mainnet');
 
   log.info(`Connecting to node at ${new URL(PROVIDER_URL).origin}..`);
   const web3 = new Web3(PROVIDER_URL);
@@ -26,7 +27,7 @@ async function initApp () {
   const nexusContractLoader = new NexusContractLoader(NETWORK, VERSION_DATA_URL, web3.eth.currentProvider);
   await nexusContractLoader.init();
 
-  const quoteEngine = new QuoteEngine(nexusContractLoader, PRIVATE_KEY, web3);
+  const quoteEngine = new QuoteEngine(nexusContractLoader, PRIVATE_KEY, web3, CAPACITY_FACTOR_END_DATE);
   const app = routes(quoteEngine);
   return app;
 }

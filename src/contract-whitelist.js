@@ -10,15 +10,17 @@ async function getWhitelist () {
 
   let whitelist = cache.get(WHITELIST_KEY);
   if (!whitelist) {
-    whitelist = [];
+    whitelist = {};
     const data = await fetch('https://api.nexusmutual.io/coverables/contracts.json').then(res => res.json());
     for (const address of Object.keys(data)) {
       if (!data[address].deprecated) {
-        whitelist.push(address.toLowerCase());
+        const contractData = data[address];
+        delete data[address];
+        whitelist[address.toLowerCase()] = contractData;
       }
     }
     cache.set(WHITELIST_KEY, whitelist);
-    log.info(`Fetched and cached whitelist of length: ${whitelist.length}`);
+    log.info(`Fetched and cached whitelist of length: ${Object.keys(whitelist).length}`);
   }
   return whitelist;
 }

@@ -6,6 +6,7 @@ const Decimal = require('decimal.js');
 const { initApp } = require('../../src/app');
 const { ApiKey, Cover } = require('../../src/models');
 const { covers } = require('./smarcoverdetails-test-data');
+const { getWhitelist } = require('../../src/contract-whitelist');
 
 const MongoMemoryServer = require('mongodb-memory-server').MongoMemoryServer;
 const mongoose = require('mongoose');
@@ -59,6 +60,7 @@ describe('GET quotes', function () {
     process.env.NETWORK = 'mainnet';
     process.env.PRIVATE_KEY = '45571723d6f6fa704623beb284eda724459d76cc68e82b754015d6e7af794cc8';
     process.env.MONGO_URL = uri;
+    process.env.CAPACITY_FACTOR_END_DATE = '08/10/2020';
 
     await ApiKey.create({ apiKey: API_KEY, origin: ORIGIN });
 
@@ -121,6 +123,19 @@ describe('GET quotes', function () {
     });
   });
 
+  describe.only('GET /v1/capacities', async function () {
+    it('responds with 200 when called and  with the correct number of contracts', async function () {
+      const whitelist = await getWhitelist();
+      const expectedCapacitiesLength = Object.keys(whitelist).length;
+      const { status, body } = await request(app)
+        .get(`/v1/capacities`)
+        .set({ 'x-api-key': API_KEY, origin: ORIGIN });
+
+      assert.strictEqual(status, 200);
+      assert.strictEqual(body.length, expectedCapacitiesLength);
+    });
+  });
+
   describe('GET /v1/quote', function () {
     it('responds with a valid quote for a production contract for ETH', async function () {
       const coverAmount = '1000';
@@ -180,19 +195,19 @@ describe('GET quotes', function () {
     });
 
     it('responds with 200 for all currently whitelisted contracts for ETH and DAI quotes', async function () {
-      const whitelist = [];
-      const data = await fetch('https://api.nexusmutual.io/coverables/contracts.json').then(res => res.json());
-      for (const address of Object.keys(data)) {
-        if (!data[address].deprecated) {
-          data[address] = { ...data[address], address };
-          whitelist.push(data[address]);
+      const whitelistArray = [];
+      const whitelist = await getWhitelist();
+      for (const address of Object.keys(whitelist)) {
+        if (!whitelist[address].deprecated) {
+          whitelist[address] = { ...whitelist[address], address };
+          whitelistArray.push(whitelist[address]);
         }
       }
       const ethCoverAmount = '100';
       const daiCoverAmount = '100';
       const period = 100;
 
-      const chunks = chunk(whitelist, 10);
+      const chunks = chunk(whitelistArray, 1);
       const results = [];
       for (const chunk of chunks) {
 

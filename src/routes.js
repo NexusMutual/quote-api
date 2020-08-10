@@ -70,7 +70,8 @@ module.exports = quoteEngine => {
       });
     }
     const whitelist = await getWhitelist();
-    if (!whitelist.includes(contractAddress.toLowerCase())) {
+    const contractData = whitelist[contractAddress.toLowerCase()];
+    if (!contractData) {
       const message = `Contract ${contractAddress} not on whitelist`;
       log.error(message);
       return res.status(400).send({
@@ -84,6 +85,7 @@ module.exports = quoteEngine => {
       coverAmount,
       currency,
       period,
+      contractData
     );
 
     res.send(prettyPrintResponse(quote));
@@ -114,13 +116,36 @@ module.exports = quoteEngine => {
       });
     }
 
-    const { capacityDAI, capacityETH, netStakedNXM } = await quoteEngine.getCapacity(contractAddress);
+    const whitelist = await getWhitelist();
+    const contractData = whitelist[contractAddress.toLowerCase()];
+    if (!contractData) {
+      const message = `Contract ${contractAddress} not on whitelist.`;
+      log.error(message);
+      return res.status(400).send({
+        reason: 'Uncoverable',
+        coverAmount: 0,
+      });
+    }
 
-    res.send({
-      capacityETH: capacityETH.toFixed(0),
-      capacityDAI: capacityDAI.toFixed(0),
-      netStakedNXM: netStakedNXM.toFixed(0),
-    });
+    const capacity = await quoteEngine.getCapacity(contractAddress, contractData);
+
+    res.send(prettyPrintCapacityResponse(capacity));
+  }));
+
+  app.get('/v1/capacities', asyncRoute(async (req, res) => {
+    const origin = req.get('origin');
+    const apiKey = req.headers['x-api-key'];
+    const isAllowed = await isOriginAllowed(origin, apiKey);
+
+    if (!isAllowed) {
+      return res.status(403).send({
+        error: true,
+        message: 'Origin not allowed. Contact us for an API key',
+      });
+    }
+
+    const capacities = await quoteEngine.getCapacities();
+    res.send(capacities.map(prettyPrintCapacityResponse));
   }));
 
   /**
@@ -155,7 +180,8 @@ module.exports = quoteEngine => {
       });
     }
     const whitelist = await getWhitelist();
-    if (!whitelist.includes(contractAddress.toLowerCase())) {
+    const contractData = whitelist[contractAddress.toLowerCase()];
+    if (!contractData) {
       const message = `Contract ${contractAddress} not on whitelist.`;
       log.error(message);
       return res.status(400).send({
@@ -169,6 +195,7 @@ module.exports = quoteEngine => {
       coverAmount,
       currency,
       period,
+      contractData
     );
 
     res.send(toLegacyFormatResponse(quote, coverAmount));
@@ -199,6 +226,15 @@ function prettyPrintResponse (r) {
     price: r.price.toFixed(0),
     priceInNXM: r.priceInNXM.toFixed(0),
     period: r.period.toString(),
+  };
+  return prettyResponse;
+}
+
+function prettyPrintCapacityResponse (r) {
+  const prettyResponse = {
+    capacityETH: r.capacityETH.toFixed(0),
+    capacityDAI: r.capacityDAI.toFixed(0),
+    netStakedNXM: r.netStakedNXM.toFixed(0),
   };
   return prettyResponse;
 }
