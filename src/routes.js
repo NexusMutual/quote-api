@@ -127,13 +127,9 @@ module.exports = quoteEngine => {
       });
     }
 
-    const { capacityDAI, capacityETH, netStakedNXM } = await quoteEngine.getCapacity(contractAddress, contractData);
+    const capacity = await quoteEngine.getCapacity(contractAddress, contractData);
 
-    res.send({
-      capacityETH: capacityETH.toFixed(0),
-      capacityDAI: capacityDAI.toFixed(0),
-      netStakedNXM: netStakedNXM.toFixed(0),
-    });
+    res.send(prettyPrintCapacityResponse(capacity));
   }));
 
   app.get('/v1/capacities', asyncRoute(async (req, res) => {
@@ -149,7 +145,7 @@ module.exports = quoteEngine => {
     }
 
     const capacities = await quoteEngine.getCapacities();
-    res.send(capacities);
+    res.send(capacities.map(prettyPrintCapacityResponse));
   }));
 
   /**
@@ -230,6 +226,15 @@ function prettyPrintResponse (r) {
     price: r.price.toFixed(0),
     priceInNXM: r.priceInNXM.toFixed(0),
     period: r.period.toString(),
+  };
+  return prettyResponse;
+}
+
+function prettyPrintCapacityResponse (r) {
+  const prettyResponse = {
+    capacityETH: r.capacityETH.toFixed(0),
+    capacityDAI: r.capacityDAI.toFixed(0),
+    netStakedNXM: r.netStakedNXM.toFixed(0),
   };
   return prettyResponse;
 }
