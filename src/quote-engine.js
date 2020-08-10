@@ -436,7 +436,7 @@ class QuoteEngine {
   /**
    * @param {string} contractAddress
    * @param {{ dateAdded: string, name: string }} contractData
-   * @return {{ capacityETH: Decimal, capacityDAI: Decimal, netStakedNXM: Decimal }}
+   * @return {Promise<{ capacityETH: Decimal, capacityDAI: Decimal, netStakedNXM: Decimal }>}
    */
   async getCapacity (contractAddress, contractData) {
 
@@ -474,7 +474,10 @@ class QuoteEngine {
     return capacity;
   }
 
-  async getCapacities() {
+  /**
+   * @return {Promise<[{ capacityETH: Decimal, capacityDAI: Decimal, netStakedNXM: Decimal }]>}
+   */
+  async getCapacities () {
     const whitelist = await getWhitelist();
 
     const capacities = await Promise.all(Object.keys(whitelist).map(async contractAddress => {
