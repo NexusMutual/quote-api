@@ -11,8 +11,9 @@ async function init () {
 
   const PORT = getEnv('PORT');
   const app = await initApp();
-  log.info(`Quote engine listening on port ${PORT}`);
+
   await startServer(app, PORT);
+  log.info(`Quote engine listening on port ${PORT}`);
 }
 
 init()
