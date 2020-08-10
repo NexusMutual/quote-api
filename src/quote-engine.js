@@ -231,28 +231,10 @@ class QuoteEngine {
    */
   async getCapacity (contractAddress) {
 
-    const now = new Date();
-    const activeCovers = await QuoteEngine.getActiveCovers(contractAddress, now);
-    const [netStakedNXM, minCapETH, nxmPrice, currencyRates] = await Promise.all([
-      this.getNetStakedNxm(contractAddress),
-      this.getLastMcrEth(),
-      this.getTokenPrice(),
-      this.getCurrencyRates(),
-    ]);
-
-    log.info(`Detected ${activeCovers.length} active covers.`);
-    log.info(JSON.stringify({ netStakedNXM, minCapETH, nxmPrice, currencyRates }));
-
-    const capacityETH = QuoteEngine.calculateCapacity(netStakedNXM, nxmPrice, minCapETH, activeCovers, currencyRates);
-    log.info(`Computed capacity for ${contractAddress}: ${capacityETH.toFixed()}`);
-
-    const daiRate = currencyRates['DAI'];
-    const capacityDAI = capacityETH.div(daiRate).mul('1e18');
-
     return {
-      capacityETH: Decimal('1000'),
-      capacityDAI: Decimal('3000'),
-      netStakedNXM: Decimal('10000'),
+      capacityETH: Decimal('1000').mul(1e18),
+      capacityDAI: Decimal('20000').mul(1e18),
+      netStakedNXM: Decimal('20000').mul(1e18),
     };
   }
 

@@ -90,8 +90,6 @@ module.exports = quoteEngine => {
 
   app.get('/v1/contracts/:contractAddress/capacity', asyncRoute(async (req, res) => {
 
-    return res.status(405).send({ error: 'not implemented' });
-
     const { contractAddress } = req.params;
     QuoteEngine.validateCapacityParameters();
 
