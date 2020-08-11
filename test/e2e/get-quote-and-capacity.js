@@ -123,7 +123,7 @@ describe('GET quotes', function () {
     });
   });
 
-  describe.only('GET /v1/capacities', async function () {
+  describe('GET /v1/capacities', async function () {
     it('responds with 200 when called and  with the correct number of contracts', async function () {
       const whitelist = await getWhitelist();
       const expectedCapacitiesLength = Object.keys(whitelist).length;
@@ -133,6 +133,12 @@ describe('GET quotes', function () {
 
       assert.strictEqual(status, 200);
       assert.strictEqual(body.length, expectedCapacitiesLength);
+
+      const firstCapacity = body[0];
+      assert(Decimal(firstCapacity.capacityETH).isInteger());
+      assert(Decimal(firstCapacity.capacityDAI).isInteger());
+      assert(Decimal(firstCapacity.netStakedNXM).isInteger());
+      assert(firstCapacity.contractAddress);
     });
   });
 

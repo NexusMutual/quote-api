@@ -85,7 +85,7 @@ module.exports = quoteEngine => {
       coverAmount,
       currency,
       period,
-      contractData
+      contractData,
     );
 
     res.send(prettyPrintResponse(quote));
@@ -145,7 +145,9 @@ module.exports = quoteEngine => {
     }
 
     const capacities = await quoteEngine.getCapacities();
-    res.send(capacities.map(prettyPrintCapacityResponse));
+    res.send(capacities.map(capacity => {
+      return { ...prettyPrintCapacityResponse(capacity), contractAddress: capacity.contractAddress };
+    }));
   }));
 
   /**
@@ -195,7 +197,7 @@ module.exports = quoteEngine => {
       coverAmount,
       currency,
       period,
-      contractData
+      contractData,
     );
 
     res.send(toLegacyFormatResponse(quote, coverAmount));
