@@ -323,9 +323,9 @@ class QuoteEngine {
 
     const risk = this.calculateRisk(netStakedNxm);
     const quotePriceInWei = QuoteEngine.calculatePrice(finalCoverAmountInWei, risk, COVER_PRICE_SURPLUS_MARGIN, period);
-    const quotePriceInCoverCurrencyWei = quotePriceInWei.div(coverCurrencyRate).mul('1e18');
-    const quotePriceInNxmWei = quotePriceInWei.div(nxmPrice).mul('1e18');
-    const finalCoverInCoverCurrency = finalCoverAmountInWei.div(coverCurrencyRate);
+    const quotePriceInCoverCurrencyWei = quotePriceInWei.div(coverCurrencyRate).mul('1e18').floor();
+    const quotePriceInNxmWei = quotePriceInWei.div(nxmPrice).mul('1e18').floor();
+    const finalCoverInCoverCurrency = finalCoverAmountInWei.div(coverCurrencyRate).floor();
 
     return {
       currency,
