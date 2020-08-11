@@ -52,16 +52,16 @@ class QuoteEngine {
    * @return {Decimal}
    */
   static calculateCapacity (stakedNxm, nxmPriceEth, minCapETH, activeCovers, currencyRates, capacityFactor) {
-    const maxGlobalCapacityPerContract = minCapETH.mul(CONTRACT_CAPACITY_LIMIT_PERCENT);
+    const maxMCRCapacity = minCapETH.mul(CONTRACT_CAPACITY_LIMIT_PERCENT);
     const stakedNxmEthValue = stakedNxm.mul(nxmPriceEth).div('1e18');
     const activeCoversEthValues = activeCovers.map(cover => currencyRates[cover.currency].mul(cover.sumAssured));
     const activeCoversSumEthValue = activeCoversEthValues.reduce((a, b) => a.add(b), Decimal(0));
 
-    const maxPerContractCapacity = stakedNxmEthValue.mul(capacityFactor);
-    const maxCapacityWithoutActiveCovers = utils.min(maxPerContractCapacity, maxGlobalCapacityPerContract);
-    const maxCapacity = utils.max(maxCapacityWithoutActiveCovers.sub(activeCoversSumEthValue), Decimal(0));
+    const maxStakedCapacity = stakedNxmEthValue.mul(capacityFactor);
+    const maxCapacity = utils.min(maxStakedCapacity, maxMCRCapacity);
+    const availableCapacity = utils.max(maxCapacity.sub(activeCoversSumEthValue), Decimal(0));
 
-    return maxCapacity;
+    return availableCapacity;
   }
 
   /**
