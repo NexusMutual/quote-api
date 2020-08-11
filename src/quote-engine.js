@@ -43,7 +43,7 @@ class QuoteEngine {
   /**
    * Min [ Max(0, Staked NXM x NXM PriceETH - ActiveCovers ETH) , MaxCapacityPerContract]
    *
-   * @param {Decimal} stakedNxm
+   * @param {Decimal} netStakedNxm
    * @param {Decimal} nxmPriceEth
    * @param {Decimal} minCapETH
    * @param {[object]} activeCovers
@@ -51,13 +51,13 @@ class QuoteEngine {
    * @param {Decimal} capacityFactor
    * @return {Decimal}
    */
-  static calculateCapacity (stakedNxm, nxmPriceEth, minCapETH, activeCovers, currencyRates, capacityFactor) {
+  static calculateCapacity (netStakedNxm, nxmPriceEth, minCapETH, activeCovers, currencyRates, capacityFactor) {
     const maxMCRCapacity = minCapETH.mul(CONTRACT_CAPACITY_LIMIT_PERCENT);
-    const stakedNxmEthValue = stakedNxm.mul(nxmPriceEth).div('1e18');
+    const netStakedNxmEthValue = netStakedNxm.mul(nxmPriceEth).div('1e18');
     const activeCoversEthValues = activeCovers.map(cover => currencyRates[cover.currency].mul(cover.sumAssured));
     const activeCoversSumEthValue = activeCoversEthValues.reduce((a, b) => a.add(b), Decimal(0));
 
-    const maxStakedCapacity = stakedNxmEthValue.mul(capacityFactor);
+    const maxStakedCapacity = netStakedNxmEthValue.mul(capacityFactor);
     const maxCapacity = utils.min(maxStakedCapacity, maxMCRCapacity);
     const availableCapacity = utils.max(maxCapacity.sub(activeCoversSumEthValue), Decimal(0));
 
