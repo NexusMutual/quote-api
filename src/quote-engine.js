@@ -16,6 +16,14 @@ const CONTRACT_CAPACITY_LIMIT_PERCENT = Decimal('0.2');
 const COVER_PRICE_SURPLUS_MARGIN = Decimal('0.3');
 const CAPACITY_FACTOR = Decimal('2');
 
+const DEPENDANT_CONTRACTS = {
+  // Curve All Pools (incl staking)
+  '0x79a8c46dea5ada233abaffd40f3a0a2b1e5a4f27': [
+    // Curve BTC Pools
+    '0x7fc77b5c7614e1533320ea6ddc2eb61fa00a9714',
+  ],
+};
+
 class QuoteEngine {
 
   /**
@@ -176,10 +184,14 @@ class QuoteEngine {
    */
   static async getActiveCovers (contractAddress, now) {
 
+    const lowerCasedContractAddress = contractAddress.toLowerCase();
+    const contractAddresses = DEPENDANT_CONTRACTS[lowerCasedContractAddress] ? DEPENDANT_CONTRACTS[lowerCasedContractAddress] : [];
+    contractAddresses.push(lowerCasedContractAddress);
+    const contractAddressesLowerCased = contractAddresses.map(a => a.toLowerCase());
     const storedActiveCovers = await Cover.find({
       expirytimeStamp: { $gt: now.getTime() / 1000 },
       lockCN: { $ne: '0' },
-      smartContractAdd: contractAddress.toLowerCase(),
+      smartContractAdd: { $in: contractAddressesLowerCased },
     });
 
     return storedActiveCovers.map(stored => ({

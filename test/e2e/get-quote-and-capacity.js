@@ -78,11 +78,12 @@ describe('GET quotes', function () {
 
   describe('GET /v1/contracts/:contractAddress/capacity', async function () {
     it('responds with 200 for a production contract', async function () {
-      const contractAddress = '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B';
+      const contractAddress = '0x79a8C46DeA5aDa233ABaFFD40F3A0A2B1e5A4F27';
+      const dependantContract = '0x7fC77b5c7614E1533320Ea6DDc2Eb61fa00A9714'.toLowerCase();
       const smartCoverDetailsList = covers();
       smartCoverDetailsList.forEach(cover => {
         // eslint-disable-next-line
-        cover.smartContractAdd = contractAddress;
+        cover.smartContractAdd = dependantContract;
       });
       await Cover.insertMany(smartCoverDetailsList);
       const { status, body } = await requestCapacity(contractAddress);
