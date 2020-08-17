@@ -78,7 +78,7 @@ describe('GET quotes', function () {
 
   describe('GET /v1/contracts/:contractAddress/capacity', async function () {
     it('responds with 200 for a production contract', async function () {
-      const contractAddress = '0x79a8C46DeA5aDa233ABaFFD40F3A0A2B1e5A4F27'.toLowerCase();
+      const contractAddress = '0x79a8C46DeA5aDa233ABaFFD40F3A0A2B1e5A4F27';
       const dependantContract = '0x7fC77b5c7614E1533320Ea6DDc2Eb61fa00A9714'.toLowerCase();
       const smartCoverDetailsList = covers();
       smartCoverDetailsList.forEach(cover => {

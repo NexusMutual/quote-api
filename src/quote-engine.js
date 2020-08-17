@@ -185,7 +185,7 @@ class QuoteEngine {
   static async getActiveCovers (contractAddress, now) {
 
     const lowerCasedContractAddress = contractAddress.toLowerCase();
-    const contractAddresses = DEPENDANT_CONTRACTS[lowerCasedContractAddress] ? DEPENDANT_CONTRACTS[contractAddress] : [];
+    const contractAddresses = DEPENDANT_CONTRACTS[lowerCasedContractAddress] ? DEPENDANT_CONTRACTS[lowerCasedContractAddress] : [];
     contractAddresses.push(lowerCasedContractAddress);
     const contractAddressesLowerCased = contractAddresses.map(a => a.toLowerCase());
     const storedActiveCovers = await Cover.find({
