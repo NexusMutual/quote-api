@@ -90,6 +90,7 @@ describe('GET quotes', function () {
       assert(Decimal(body.capacityETH).isInteger());
       assert(Decimal(body.capacityDAI).isInteger());
       assert(Decimal(body.netStakedNXM).isInteger());
+      assert.strictEqual(body.capacityLimit, 'MCR_CAPACITY');
       assert.strictEqual(status, 200);
     });
   });
