@@ -3,6 +3,11 @@ const Decimal = require('decimal.js');
 const { to2Decimals } = require('./testing-utils');
 const QuoteEngine = require('../../src/quote-engine');
 
+const CAPACITY_LIMIT = {
+  STAKED_CAPACITY: 'STAKED_CAPACITY',
+  MCR_CAPACITY: 'MCR_CAPACITY',
+};
+
 describe('calculateCapacity()', function () {
   it('calculates capacity correctly', function () {
     const stakedNxm = Decimal(120000).mul('1e18');
@@ -20,8 +25,10 @@ describe('calculateCapacity()', function () {
       ETH: Decimal('1e18'),
       DAI: Decimal('1e18').div(ethDAIRate),
     };
-    const capacity = QuoteEngine.calculateCapacity(stakedNxm, nxmPrice, minCapETH, activeCovers, currencyRates, capacityFactor);
+    const { capacity, capacityLimit } =
+      QuoteEngine.calculateCapacity(stakedNxm, nxmPrice, minCapETH, activeCovers, currencyRates, capacityFactor);
     assert.strictEqual(to2Decimals(capacity), '1760.09');
+    assert.strictEqual(capacityLimit, CAPACITY_LIMIT.STAKED_CAPACITY);
   });
 
   it('calculates capacity correctly with capacity factor 2', function () {
@@ -40,10 +47,11 @@ describe('calculateCapacity()', function () {
       DAI: Decimal('1e18').div(ethDAIRate),
     };
     const capacityFactor = Decimal('2');
-    const capacity = QuoteEngine.calculateCapacity(
+    const { capacity, capacityLimit } = QuoteEngine.calculateCapacity(
       stakedNxm, nxmPrice, minCapETH, activeCovers, currencyRates, capacityFactor,
     );
     assert.strictEqual(to2Decimals(capacity), '1760.09');
+    assert.strictEqual(capacityLimit, CAPACITY_LIMIT.STAKED_CAPACITY);
   });
 
   it('calculates capacity correctly with capacity factor 2 and hitting the global capacity limit', function () {
@@ -66,11 +74,12 @@ describe('calculateCapacity()', function () {
       DAI: Decimal('1e18').div(ethDAIRate),
     };
     const capacityFactor = Decimal('2');
-    const capacity = QuoteEngine.calculateCapacity(
+    const { capacity, capacityLimit } = QuoteEngine.calculateCapacity(
       stakedNxm, nxmPrice, minCapETH, activeCovers, currencyRates, capacityFactor,
     );
 
     const expectedCapacity = maxGlobalCapacityPerContract.sub(totalActiveCoverValueETH);
     assert.strictEqual(to2Decimals(capacity), to2Decimals(expectedCapacity));
+    assert.strictEqual(capacityLimit, CAPACITY_LIMIT.MCR_CAPACITY);
   });
 });

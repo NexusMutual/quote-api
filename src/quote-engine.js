@@ -24,6 +24,11 @@ const DEPENDANT_CONTRACTS = {
   ],
 };
 
+const CAPACITY_LIMIT = {
+  STAKED_CAPACITY: 'STAKED_CAPACITY',
+  MCR_CAPACITY: 'MCR_CAPACITY',
+};
+
 class QuoteEngine {
 
   /**
@@ -57,7 +62,7 @@ class QuoteEngine {
    * @param {[object]} activeCovers
    * @param {object} currencyRates
    * @param {Decimal} capacityFactor
-   * @return {Decimal}
+   * @return {{ capacity: Decimal, limit: string }}
    */
   static calculateCapacity (netStakedNxm, nxmPriceEth, minCapETH, activeCovers, currencyRates, capacityFactor) {
     const maxMCRCapacity = minCapETH.mul(CONTRACT_CAPACITY_LIMIT_PERCENT);
@@ -67,9 +72,11 @@ class QuoteEngine {
 
     const maxStakedCapacity = netStakedNxmEthValue.mul(capacityFactor);
     const maxCapacity = utils.min(maxStakedCapacity, maxMCRCapacity);
+    const capacityLimit = maxCapacity.toString() === maxStakedCapacity.toString()
+      ? CAPACITY_LIMIT.STAKED_CAPACITY : CAPACITY_LIMIT.MCR_CAPACITY;
     const availableCapacity = utils.max(maxCapacity.sub(activeCoversSumEthValue), Decimal(0));
 
-    return availableCapacity;
+    return { capacity: availableCapacity, capacityLimit };
   }
 
   /**
@@ -325,7 +332,7 @@ class QuoteEngine {
       };
     }
 
-    const maxCapacity = QuoteEngine.calculateCapacity(
+    const { capacity: maxCapacity } = QuoteEngine.calculateCapacity(
       netStakedNxm, nxmPrice, minCapETH, activeCovers, currencyRates, capacityFactor,
     );
     const requestedCoverAmountInWei = requestedCoverAmount.mul(coverCurrencyRate);
@@ -472,7 +479,7 @@ class QuoteEngine {
     log.info(`Detected ${activeCovers.length} active covers.`);
     const capacityFactor = this.getCapacityFactor(new Date(contractData.dateAdded));
     log.info(JSON.stringify({ netStakedNXM, minCapETH, nxmPrice, currencyRates, capacityFactor }));
-    const capacityETH = QuoteEngine.calculateCapacity(
+    const { capacity: capacityETH, capacityLimit } = QuoteEngine.calculateCapacity(
       netStakedNXM, nxmPrice, minCapETH, activeCovers, currencyRates, capacityFactor,
     );
     log.info(`Computed capacity for ${contractData.name}(${contractAddress}): ${capacityETH.toFixed()}`);
@@ -484,6 +491,7 @@ class QuoteEngine {
       capacityETH,
       capacityDAI,
       netStakedNXM,
+      capacityLimit,
     };
     this.capacitiesCache.set(contractAddress, capacity);
     return capacity;

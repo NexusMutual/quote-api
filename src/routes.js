@@ -237,6 +237,7 @@ function prettyPrintCapacityResponse (r) {
     capacityETH: r.capacityETH.toFixed(0),
     capacityDAI: r.capacityDAI.toFixed(0),
     netStakedNXM: r.netStakedNXM.toFixed(0),
+    capacityLimit: r.capacityLimit,
   };
   return prettyResponse;
 }
