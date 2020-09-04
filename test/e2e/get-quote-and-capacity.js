@@ -93,6 +93,22 @@ describe('GET quotes', function () {
       assert.strictEqual(body.capacityLimit, 'MCR_CAPACITY');
       assert.strictEqual(status, 200);
     });
+
+    it.only('responds with 200 for a production contract with a defined MCR factor', async function () {
+      const contractAddress = '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f';
+      const smartCoverDetailsList = covers();
+      smartCoverDetailsList.forEach(cover => {
+        // eslint-disable-next-line
+        cover.smartContractAdd = contractAddress;
+      });
+      await Cover.insertMany(smartCoverDetailsList);
+      const { status, body } = await requestCapacity(contractAddress);
+      assert(Decimal(body.capacityETH).isInteger());
+      assert(Decimal(body.capacityDAI).isInteger());
+      assert(Decimal(body.netStakedNXM).isInteger());
+      assert.strictEqual(body.capacityLimit, 'MCR_CAPACITY');
+      assert.strictEqual(status, 200);
+    });
   });
 
   describe('GET /getQuote', function () {
