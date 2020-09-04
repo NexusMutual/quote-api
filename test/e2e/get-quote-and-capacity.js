@@ -94,7 +94,7 @@ describe('GET quotes', function () {
       assert.strictEqual(status, 200);
     });
 
-    it.only('responds with 200 for a production contract with a defined MCR factor', async function () {
+    it('responds with 200 for a production contract with a defined MCR factor', async function () {
       const contractAddress = '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f';
       const smartCoverDetailsList = covers();
       smartCoverDetailsList.forEach(cover => {
