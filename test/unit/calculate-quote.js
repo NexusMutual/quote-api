@@ -27,11 +27,12 @@ describe('calculateQuote()', function () {
       DAI: Decimal('1e18').div(ethDAIRate),
     };
     const capacityFactor = Decimal('1');
+    const mcrCapacityFactor = Decimal('1');
 
     let quoteData;
     it('calculates quoteData succesfully', function () {
       quoteData = QuoteEngine.calculateQuote(
-        amount, period, currency, nxmPrice, stakedNxm, minCapETH, activeCovers, currencyRates, now, capacityFactor,
+        amount, period, currency, nxmPrice, stakedNxm, minCapETH, activeCovers, currencyRates, now, capacityFactor, mcrCapacityFactor,
       );
     });
 
@@ -73,13 +74,14 @@ describe('calculateQuote()', function () {
       DAI: Decimal('1e18').div(ethDAIRate),
     };
     const capacityFactor = Decimal('1');
+    const mcrCapacityFactor = Decimal('1');
 
     function assertETHAndNXMPrices (
       amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered, reason,
     ) {
 
       const quoteData = QuoteEngine.calculateQuote(
-        amount, period, currency, nxmPrice, stakedNxm, minCapETH, activeCovers, currencyRates, now, capacityFactor,
+        amount, period, currency, nxmPrice, stakedNxm, minCapETH, activeCovers, currencyRates, now, capacityFactor, mcrCapacityFactor,
       );
       assert.strictEqual(
         to2Decimals(quoteData.price),
@@ -180,13 +182,14 @@ describe('calculateQuote()', function () {
       DAI: Decimal('1e18').div(ethDAIRate),
     };
     const capacityFactor = Decimal('1');
+    const mcrCapacityFactor = Decimal('1');
 
     function assertETHAndNXMPrices (
       amount, period, stakedNxm, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered, reason,
     ) {
 
       const quoteData = QuoteEngine.calculateQuote(
-        amount, period, currency, nxmPrice, stakedNxm, minCapETH, activeCovers, currencyRates, now, capacityFactor,
+        amount, period, currency, nxmPrice, stakedNxm, minCapETH, activeCovers, currencyRates, now, capacityFactor, mcrCapacityFactor,
       );
       assert.strictEqual(
         to2Decimals(quoteData.price),
