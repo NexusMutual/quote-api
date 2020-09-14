@@ -191,7 +191,7 @@ describe('GET quotes', function () {
       const coverAmount = '20000';
       const currency = 'DAI';
       const period = 100;
-      const contractAddress = '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B';
+      const contractAddress = '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f'; // uniswap v2
       const smartCoverDetailsList = covers();
       smartCoverDetailsList.forEach(cover => {
         // eslint-disable-next-line
@@ -242,6 +242,8 @@ describe('GET quotes', function () {
           let { status, body } = await requestQuote(ethCoverAmount, 'ETH', period, contract.address);
           assert.strictEqual(status, 200, `Failed for ${JSON.stringify(contract)}`);
           results.push({ ...body, ...contract });
+
+          await sleep(QUOTE_SIGN_MIN_INTERVAL_MILLIS);
 
           const response = await requestQuote(daiCoverAmount, 'DAI', period, contract.address);
           status = response.status;
