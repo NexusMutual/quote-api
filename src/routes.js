@@ -10,10 +10,17 @@ const { toLegacyFormatResponse } = require('./legacy-formatting');
 const asyncRoute = route => (req, res) => {
   route(req, res).catch(e => {
     log.error(`Route error: ${e.stack}`);
-    res.status(500).send({
-      error: true,
-      message: 'Internal server error',
-    });
+    if (e.status) {
+      res.status(e.status).send({
+        error: true,
+        message: e.message,
+      });
+    } else {
+      res.status(500).send({
+        error: true,
+        message: 'Internal server error',
+      });
+    }
   });
 };
 

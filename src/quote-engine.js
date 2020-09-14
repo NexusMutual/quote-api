@@ -43,8 +43,9 @@ class QuoteEngine {
    * @param {string} privateKey
    * @param {Web3} web3
    * @param {string} capacityFactorEndDate
+   * @param {number} quoteSignMinInterval
    */
-  constructor (nexusContractLoader, privateKey, web3, capacityFactorEndDate) {
+  constructor (nexusContractLoader, privateKey, web3, capacityFactorEndDate, quoteSignMinInterval) {
     this.nexusContractLoader = nexusContractLoader;
     this.privateKey = privateKey;
     this.web3 = web3;
@@ -58,6 +59,12 @@ class QuoteEngine {
     this.capacityFactorEndDate = endMoment.toDate();
 
     this.capacitiesCache = new NodeCache({ stdTTL: 15, checkperiod: 60 });
+
+    if (!Number.isInteger(quoteSignMinInterval)) {
+      throw new Error(`Invalid quoteSignMinInterval: ${quoteSignMinInterval}`);
+    }
+    this.quoteSignMinInterval = quoteSignMinInterval * 1000;
+    this.lastSignatureTimes = {};
   }
 
   /**
@@ -419,6 +426,7 @@ class QuoteEngine {
    */
   async getQuote (contractAddress, coverAmount, currency, period, contractData) {
     const { error } = QuoteEngine.validateQuoteParameters(contractAddress, coverAmount, currency, period);
+
     if (error) {
       throw new Error(`Invalid parameters provided: ${error}`);
     }
@@ -428,6 +436,25 @@ class QuoteEngine {
 
     const amount = Decimal(coverAmount);
     const now = new Date();
+
+    // take the most recent signature time from the set of all related contracts
+    const dependants = DEPENDANT_CONTRACTS[lowerCasedContractAddress] || [];
+    const all = [lowerCasedContractAddress];
+    all.push(...dependants);
+    const lastSignatureTime = Math.max(...[all.map(c => this.lastSignatureTimes[c] || 0)]);
+
+    const nowTimestamp = now.getTime();
+    const timePassedSinceLastSignature = nowTimestamp - lastSignatureTime;
+    log.info(`For ${lowerCasedContractAddress} timePassedSinceLastSignature: ${timePassedSinceLastSignature}`);
+    if (lastSignatureTime === 0 || timePassedSinceLastSignature > this.quoteSignMinInterval) {
+      log.info(`lastSignatureTimes[${lowerCasedContractAddress}] = ${nowTimestamp}`);
+      this.lastSignatureTimes[lowerCasedContractAddress] = nowTimestamp;
+    } else {
+      log.error(`Too many requests for ${lowerCasedContractAddress}`);
+      const e = Error('Too many requests');
+      e.status = 429;
+      throw e;
+    }
 
     const activeCovers = await QuoteEngine.getActiveCovers(lowerCasedContractAddress, now);
 

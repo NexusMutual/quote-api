@@ -24,6 +24,8 @@ function chunk (arr, chunkSize) {
   return chunks;
 }
 
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
 describe('GET quotes', function () {
   const PORT = 3000;
 
@@ -48,6 +50,8 @@ describe('GET quotes', function () {
     return response;
   }
 
+  const QUOTE_SIGN_MIN_INTERVAL_MILLIS = 10000;
+
   before(async function () {
 
     const mongod = new MongoMemoryServer();
@@ -61,6 +65,7 @@ describe('GET quotes', function () {
     process.env.PRIVATE_KEY = '45571723d6f6fa704623beb284eda724459d76cc68e82b754015d6e7af794cc8';
     process.env.MONGO_URL = uri;
     process.env.CAPACITY_FACTOR_END_DATE = '08/10/2020';
+    process.env.QUOTE_SIGN_MIN_INTERVAL_SECONDS = (Math.floor(QUOTE_SIGN_MIN_INTERVAL_MILLIS / 1000)).toString();
 
     await ApiKey.create({ apiKey: API_KEY, origin: ORIGIN });
 
@@ -183,6 +188,33 @@ describe('GET quotes', function () {
       assert(Decimal(body.priceInNXM).isInteger());
       assert(Decimal(body.expiresAt).isInteger());
       assert(Decimal(body.generatedAt).isInteger());
+    });
+
+    it('responds with 429 if requested too many signatures too quickly', async function () {
+      const coverAmount = '1000';
+      const currency = 'ETH';
+      const period = 100;
+      const contractAddress = '0x34CfAC646f301356fAa8B21e94227e3583Fe3F5F'; // Gnosis safe
+      const secondContractAddress = '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B';
+      const smartCoverDetailsList = covers();
+      smartCoverDetailsList.forEach(cover => {
+        // eslint-disable-next-line
+        cover.smartContractAdd = contractAddress;
+      });
+      await Cover.insertMany(smartCoverDetailsList);
+
+      const { status } = await requestQuote(coverAmount, currency, period, contractAddress);
+      assert.strictEqual(status, 200);
+      const { status: secondStatus } = await requestQuote(coverAmount, currency, period, contractAddress);
+      assert.strictEqual(secondStatus, 429);
+
+      await sleep(QUOTE_SIGN_MIN_INTERVAL_MILLIS);
+      // same contract again
+      const { status: thirdStatus } = await requestQuote(coverAmount, currency, period, contractAddress);
+      assert.strictEqual(thirdStatus, 200);
+      // unrelated contract
+      const { status: fourthStatus } = await requestQuote(coverAmount, currency, period, secondContractAddress);
+      assert.strictEqual(fourthStatus, 200);
     });
 
     it('responds with a valid quote for a production contract for DAI', async function () {
