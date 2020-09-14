@@ -157,59 +157,6 @@ module.exports = quoteEngine => {
     }));
   }));
 
-  /**
-   * legacy endpoint.
-   */
-  app.get('/getQuote/:coverAmount/:currency/:period/:contractAddress/:version', asyncRoute(async (req, res) => {
-
-    const origin = req.get('origin');
-    const apiKey = req.headers['x-api-key'];
-    const isAllowed = await isOriginAllowed(origin, apiKey);
-
-    if (!isAllowed) {
-      return res.status(403).send({
-        error: true,
-        message: 'Origin not allowed. Contact us for an API key',
-      });
-    }
-
-    const { contractAddress, coverAmount, currency, period } = req.params;
-
-    const { error } = QuoteEngine.validateQuoteParameters(
-      contractAddress,
-      coverAmount,
-      currency,
-      period,
-    );
-    if (error) {
-      log.error(`Invalid parameters provided: ${error}`);
-      return res.status(400).send({
-        error: true,
-        message: error,
-      });
-    }
-    const whitelist = await getWhitelist();
-    const contractData = whitelist[contractAddress.toLowerCase()];
-    if (!contractData) {
-      const message = `Contract ${contractAddress} not on whitelist.`;
-      log.error(message);
-      return res.status(400).send({
-        reason: 'Uncoverable',
-        coverAmount: 0,
-      });
-    }
-
-    const quote = await quoteEngine.getQuote(
-      contractAddress,
-      coverAmount,
-      currency,
-      period,
-      contractData,
-    );
-
-    res.send(toLegacyFormatResponse(quote, coverAmount));
-  }));
-
   return app;
 };
 

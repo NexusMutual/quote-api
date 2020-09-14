@@ -116,36 +116,6 @@ describe('GET quotes', function () {
     });
   });
 
-  describe('GET /getQuote', function () {
-    it('responds with a valid quote for a production contract', async function () {
-      const coverAmount = '1000';
-      const currency = 'ETH';
-      const period = 100;
-      const contractAddress = '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B';
-      const smartCoverDetailsList = covers();
-      smartCoverDetailsList.forEach(cover => {
-        // eslint-disable-next-line
-        cover.smartContractAdd = contractAddress;
-      });
-      await Cover.insertMany(smartCoverDetailsList);
-
-      const { status, body } = await request(app)
-        .get(`/getQuote/${coverAmount}/${currency}/${period}/${contractAddress}/M1`)
-        .set({ 'x-api-key': API_KEY, origin: ORIGIN });
-
-      assert.strictEqual(status, 200);
-      assert.strictEqual(body.coverCurr, 'ETH');
-      assert.strictEqual(body.coverAmount, parseInt(coverAmount));
-      assert.strictEqual(body.smartCA.toLowerCase(), contractAddress.toLowerCase());
-      assert.strictEqual(body.coverPeriod, period.toString());
-      assert.strictEqual(body.reason, 'ok');
-      assert(Decimal(body.coverCurrPrice).isInteger());
-      assert(Decimal(body.PriceNxm).isInteger());
-      assert(Number.isInteger(body.expireTime));
-      assert(Number.isInteger(body.generationTime));
-    });
-  });
-
   describe('GET /v1/capacities', async function () {
     it('responds with 200 when called and  with the correct number of contracts', async function () {
       const whitelist = await getWhitelist();
