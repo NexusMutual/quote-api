@@ -24,6 +24,8 @@ function chunk (arr, chunkSize) {
   return chunks;
 }
 
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
 describe('GET quotes', function () {
   const PORT = 3000;
 
@@ -48,6 +50,8 @@ describe('GET quotes', function () {
     return response;
   }
 
+  const QUOTE_SIGN_MIN_INTERVAL_MILLIS = 10000;
+
   before(async function () {
 
     const mongod = new MongoMemoryServer();
@@ -61,6 +65,7 @@ describe('GET quotes', function () {
     process.env.PRIVATE_KEY = '45571723d6f6fa704623beb284eda724459d76cc68e82b754015d6e7af794cc8';
     process.env.MONGO_URL = uri;
     process.env.CAPACITY_FACTOR_END_DATE = '08/10/2020';
+    process.env.QUOTE_SIGN_MIN_INTERVAL_SECONDS = (Math.floor(QUOTE_SIGN_MIN_INTERVAL_MILLIS / 1000)).toString();
 
     await ApiKey.create({ apiKey: API_KEY, origin: ORIGIN });
 
@@ -111,36 +116,6 @@ describe('GET quotes', function () {
     });
   });
 
-  describe('GET /getQuote', function () {
-    it('responds with a valid quote for a production contract', async function () {
-      const coverAmount = '1000';
-      const currency = 'ETH';
-      const period = 100;
-      const contractAddress = '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B';
-      const smartCoverDetailsList = covers();
-      smartCoverDetailsList.forEach(cover => {
-        // eslint-disable-next-line
-        cover.smartContractAdd = contractAddress;
-      });
-      await Cover.insertMany(smartCoverDetailsList);
-
-      const { status, body } = await request(app)
-        .get(`/getQuote/${coverAmount}/${currency}/${period}/${contractAddress}/M1`)
-        .set({ 'x-api-key': API_KEY, origin: ORIGIN });
-
-      assert.strictEqual(status, 200);
-      assert.strictEqual(body.coverCurr, 'ETH');
-      assert.strictEqual(body.coverAmount, parseInt(coverAmount));
-      assert.strictEqual(body.smartCA.toLowerCase(), contractAddress.toLowerCase());
-      assert.strictEqual(body.coverPeriod, period.toString());
-      assert.strictEqual(body.reason, 'ok');
-      assert(Decimal(body.coverCurrPrice).isInteger());
-      assert(Decimal(body.PriceNxm).isInteger());
-      assert(Number.isInteger(body.expireTime));
-      assert(Number.isInteger(body.generationTime));
-    });
-  });
-
   describe('GET /v1/capacities', async function () {
     it('responds with 200 when called and  with the correct number of contracts', async function () {
       const whitelist = await getWhitelist();
@@ -185,11 +160,38 @@ describe('GET quotes', function () {
       assert(Decimal(body.generatedAt).isInteger());
     });
 
+    it('responds with 429 if requested too many signatures too quickly', async function () {
+      const coverAmount = '1000';
+      const currency = 'ETH';
+      const period = 100;
+      const contractAddress = '0x34CfAC646f301356fAa8B21e94227e3583Fe3F5F'; // Gnosis safe
+      const secondContractAddress = '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B';
+      const smartCoverDetailsList = covers();
+      smartCoverDetailsList.forEach(cover => {
+        // eslint-disable-next-line
+        cover.smartContractAdd = contractAddress;
+      });
+      await Cover.insertMany(smartCoverDetailsList);
+
+      const { status } = await requestQuote(coverAmount, currency, period, contractAddress);
+      assert.strictEqual(status, 200);
+      const { status: secondStatus } = await requestQuote(coverAmount, currency, period, contractAddress);
+      assert.strictEqual(secondStatus, 429);
+
+      await sleep(QUOTE_SIGN_MIN_INTERVAL_MILLIS);
+      // same contract again
+      const { status: thirdStatus } = await requestQuote(coverAmount, currency, period, contractAddress);
+      assert.strictEqual(thirdStatus, 200);
+      // unrelated contract
+      const { status: fourthStatus } = await requestQuote(coverAmount, currency, period, secondContractAddress);
+      assert.strictEqual(fourthStatus, 200);
+    });
+
     it('responds with a valid quote for a production contract for DAI', async function () {
       const coverAmount = '20000';
       const currency = 'DAI';
       const period = 100;
-      const contractAddress = '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B';
+      const contractAddress = '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f'; // uniswap v2
       const smartCoverDetailsList = covers();
       smartCoverDetailsList.forEach(cover => {
         // eslint-disable-next-line
@@ -240,6 +242,8 @@ describe('GET quotes', function () {
           let { status, body } = await requestQuote(ethCoverAmount, 'ETH', period, contract.address);
           assert.strictEqual(status, 200, `Failed for ${JSON.stringify(contract)}`);
           results.push({ ...body, ...contract });
+
+          await sleep(QUOTE_SIGN_MIN_INTERVAL_MILLIS);
 
           const response = await requestQuote(daiCoverAmount, 'DAI', period, contract.address);
           status = response.status;

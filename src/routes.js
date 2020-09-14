@@ -10,10 +10,17 @@ const { toLegacyFormatResponse } = require('./legacy-formatting');
 const asyncRoute = route => (req, res) => {
   route(req, res).catch(e => {
     log.error(`Route error: ${e.stack}`);
-    res.status(500).send({
-      error: true,
-      message: 'Internal server error',
-    });
+    if (e.status) {
+      res.status(e.status).send({
+        error: true,
+        message: e.message,
+      });
+    } else {
+      res.status(500).send({
+        error: true,
+        message: 'Internal server error',
+      });
+    }
   });
 };
 
@@ -148,59 +155,6 @@ module.exports = quoteEngine => {
     res.send(capacities.map(capacity => {
       return { ...prettyPrintCapacityResponse(capacity), contractAddress: capacity.contractAddress };
     }));
-  }));
-
-  /**
-   * legacy endpoint.
-   */
-  app.get('/getQuote/:coverAmount/:currency/:period/:contractAddress/:version', asyncRoute(async (req, res) => {
-
-    const origin = req.get('origin');
-    const apiKey = req.headers['x-api-key'];
-    const isAllowed = await isOriginAllowed(origin, apiKey);
-
-    if (!isAllowed) {
-      return res.status(403).send({
-        error: true,
-        message: 'Origin not allowed. Contact us for an API key',
-      });
-    }
-
-    const { contractAddress, coverAmount, currency, period } = req.params;
-
-    const { error } = QuoteEngine.validateQuoteParameters(
-      contractAddress,
-      coverAmount,
-      currency,
-      period,
-    );
-    if (error) {
-      log.error(`Invalid parameters provided: ${error}`);
-      return res.status(400).send({
-        error: true,
-        message: error,
-      });
-    }
-    const whitelist = await getWhitelist();
-    const contractData = whitelist[contractAddress.toLowerCase()];
-    if (!contractData) {
-      const message = `Contract ${contractAddress} not on whitelist.`;
-      log.error(message);
-      return res.status(400).send({
-        reason: 'Uncoverable',
-        coverAmount: 0,
-      });
-    }
-
-    const quote = await quoteEngine.getQuote(
-      contractAddress,
-      coverAmount,
-      currency,
-      period,
-      contractData,
-    );
-
-    res.send(toLegacyFormatResponse(quote, coverAmount));
   }));
 
   return app;
