@@ -340,7 +340,7 @@ class QuoteEngine {
     mcrCapacityFactor,
   ) {
     const generatedAt = now.getTime();
-    const expiresAt = Math.ceil(generatedAt / 1000 + 3600);
+    const expiresAt = Math.ceil(generatedAt / 1000 + 300);
     const coverCurrencyRate = currencyRates[currency];
 
     if (netStakedNxm.eq(0)) {
