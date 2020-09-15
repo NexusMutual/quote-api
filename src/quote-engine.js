@@ -441,7 +441,7 @@ class QuoteEngine {
     const dependants = DEPENDANT_CONTRACTS[lowerCasedContractAddress] || [];
     const all = [lowerCasedContractAddress];
     all.push(...dependants);
-    const lastSignatureTime = Math.max(...[all.map(c => this.lastSignatureTimes[c] || 0)]);
+    const lastSignatureTime = Math.max(...[all.map(c => this.lastSignatureTimes[c])]) || 0;
 
     const nowTimestamp = now.getTime();
     const timePassedSinceLastSignature = nowTimestamp - lastSignatureTime;
