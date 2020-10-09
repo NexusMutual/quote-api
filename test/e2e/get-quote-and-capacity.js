@@ -27,6 +27,18 @@ function chunk (arr, chunkSize) {
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
+const getWhitelistArr = async () => {
+  const whitelistArray = [];
+  const whitelist = await getWhitelist();
+  for (const address of Object.keys(whitelist)) {
+    if (!whitelist[address].deprecated) {
+      whitelist[address] = { ...whitelist[address], address };
+      whitelistArray.push(whitelist[address]);
+    }
+  }
+  return whitelistArray;
+};
+
 describe('GET quotes', function () {
   const PORT = 3000;
 
@@ -225,10 +237,7 @@ describe('GET quotes', function () {
       const coverAmount = '1';
       const currency = 'DAI';
       const period = 100;
-      const calls = DAI_COVER_DENYLIST.map(x => async () => {
-        await sleep(QUOTE_SIGN_MIN_INTERVAL_MILLIS);
-        return requestQuote(coverAmount, currency, period, x);
-      });
+      const calls = DAI_COVER_DENYLIST.map(x => requestQuote(coverAmount, currency, period, x));
       const responses = await Promise.all(calls);
       const statuses = responses.map(x => x.status);
       statuses.forEach((status, i) => {
@@ -236,39 +245,42 @@ describe('GET quotes', function () {
       });
     });
 
-    it('responds with 200 for all currently whitelisted contracts for ETH and DAI quotes', async function () {
-      const whitelistArray = [];
-      const whitelist = await getWhitelist();
-      for (const address of Object.keys(whitelist)) {
-        if (!whitelist[address].deprecated) {
-          whitelist[address] = { ...whitelist[address], address };
-          whitelistArray.push(whitelist[address]);
-        }
-      }
+    it('responds with 200 for all currently whitelisted contracts for ETH quotes', async function () {
+      const whitelistArray = await getWhitelistArr();
       const ethCoverAmount = '100';
-      const daiCoverAmount = '100';
       const period = 100;
 
-      const chunks = chunk(whitelistArray, 1);
+      const chunks = chunk(whitelistArray, 8);
       const results = [];
       for (const chunk of chunks) {
 
         await Promise.all(chunk.map(async contract => {
 
-          let { status, body } = await requestQuote(ethCoverAmount, 'ETH', period, contract.address);
+          const { status, body } = await requestQuote(ethCoverAmount, 'ETH', period, contract.address);
           assert.strictEqual(status, 200, `Failed for ${JSON.stringify(contract)}`);
           results.push({ ...body, ...contract });
 
-          await sleep(QUOTE_SIGN_MIN_INTERVAL_MILLIS);
+        }));
+        await sleep(QUOTE_SIGN_MIN_INTERVAL_MILLIS);
+      }
+      console.log(results);
+    });
 
-          const response = await requestQuote(daiCoverAmount, 'DAI', period, contract.address);
-          status = response.status;
-          body = response.body;
+    it('responds with 200 for all currently whitelisted contracts not in DAI_COVER_DENYLIST for DAI quotes', async function () {
+      const whitelistArray = await getWhitelistArr();
+      const daiCoverAmount = '100';
+      const period = 100;
+
+      const chunks = chunk(whitelistArray, 8);
+      const results = [];
+      for (const chunk of chunks) {
+        await Promise.all(chunk.filter(({ address }) => !DAI_COVER_DENYLIST.includes(address.toLowerCase())).map(async contract => {
+          const { status, body } = await requestQuote(daiCoverAmount, 'DAI', period, contract.address);
           assert.strictEqual(status, 200, `Failed for ${JSON.stringify(contract)}`);
           results.push({ ...body, ...contract });
         }));
+        await sleep(QUOTE_SIGN_MIN_INTERVAL_MILLIS);
       }
-      console.log(results);
     });
   });
 });
