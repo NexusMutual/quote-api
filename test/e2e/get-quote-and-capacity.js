@@ -7,6 +7,7 @@ const { initApp } = require('../../src/app');
 const { ApiKey, Cover } = require('../../src/models');
 const { covers } = require('./smarcoverdetails-test-data');
 const { getWhitelist } = require('../../src/contract-whitelist');
+const { DAI_COVER_DENYLIST } = require('../../src/constants');
 
 const MongoMemoryServer = require('mongodb-memory-server').MongoMemoryServer;
 const mongoose = require('mongoose');
@@ -87,7 +88,7 @@ describe('GET quotes', function () {
       const dependantContract = '0x7fC77b5c7614E1533320Ea6DDc2Eb61fa00A9714'.toLowerCase();
       const smartCoverDetailsList = covers();
       smartCoverDetailsList.forEach(cover => {
-        // eslint-disable-next-line
+        // eslint-disable-next-line no-param-reassign
         cover.smartContractAdd = dependantContract;
       });
       await Cover.insertMany(smartCoverDetailsList);
@@ -103,7 +104,7 @@ describe('GET quotes', function () {
       const contractAddress = '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f';
       const smartCoverDetailsList = covers();
       smartCoverDetailsList.forEach(cover => {
-        // eslint-disable-next-line
+        // eslint-disable-next-line no-param-reassign
         cover.smartContractAdd = contractAddress;
       });
       await Cover.insertMany(smartCoverDetailsList);
@@ -143,7 +144,7 @@ describe('GET quotes', function () {
       const contractAddress = '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B';
       const smartCoverDetailsList = covers();
       smartCoverDetailsList.forEach(cover => {
-        // eslint-disable-next-line
+        // eslint-disable-next-line no-param-reassign
         cover.smartContractAdd = contractAddress;
       });
       await Cover.insertMany(smartCoverDetailsList);
@@ -168,7 +169,7 @@ describe('GET quotes', function () {
       const secondContractAddress = '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B';
       const smartCoverDetailsList = covers();
       smartCoverDetailsList.forEach(cover => {
-        // eslint-disable-next-line
+        // eslint-disable-next-line no-param-reassign
         cover.smartContractAdd = contractAddress;
       });
       await Cover.insertMany(smartCoverDetailsList);
@@ -194,7 +195,7 @@ describe('GET quotes', function () {
       const contractAddress = '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f'; // uniswap v2
       const smartCoverDetailsList = covers();
       smartCoverDetailsList.forEach(cover => {
-        // eslint-disable-next-line
+        // eslint-disable-next-line no-param-reassign
         cover.smartContractAdd = contractAddress;
       });
       await Cover.insertMany(smartCoverDetailsList);
@@ -218,6 +219,21 @@ describe('GET quotes', function () {
       const contractAddress = '0xd7c49cee7e9188cca6ad8ff264c1da2e69d4cf3b'; // NXM Token
       const { status } = await requestQuote(coverAmount, currency, period, contractAddress);
       assert.strictEqual(status, 400);
+    });
+
+    it('responds with 400 for contracts in DAI_COVER_DENYLIST when using DAI', async function () {
+      const coverAmount = '1';
+      const currency = 'DAI';
+      const period = 100;
+      const calls = DAI_COVER_DENYLIST.map(x => async () => {
+        await sleep(QUOTE_SIGN_MIN_INTERVAL_MILLIS);
+        return requestQuote(coverAmount, currency, period, x);
+      });
+      const responses = await Promise.all(calls);
+      const statuses = responses.map(x => x.status);
+      statuses.forEach((status, i) => {
+        assert.strictEqual(status, 400, `Failed for ${JSON.stringify(DAI_COVER_DENYLIST[i])}`);
+      });
     });
 
     it('responds with 200 for all currently whitelisted contracts for ETH and DAI quotes', async function () {

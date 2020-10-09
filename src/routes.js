@@ -6,6 +6,7 @@ const QuoteEngine = require('./quote-engine');
 const { getWhitelist } = require('./contract-whitelist');
 const httpContext = require('express-http-context');
 const { toLegacyFormatResponse } = require('./legacy-formatting');
+const { DAI_COVER_DENYLIST } = require('./constants');
 
 const asyncRoute = route => (req, res) => {
   route(req, res).catch(e => {
@@ -81,6 +82,14 @@ module.exports = quoteEngine => {
     if (!contractData) {
       const message = `Contract ${contractAddress} not on whitelist`;
       log.error(message);
+      return res.status(400).send({
+        error: true,
+        message,
+      });
+    }
+
+    if (currency === 'DAI' && DAI_COVER_DENYLIST.includes(contractAddress.toLowerCase())) {
+      const message = `Cover for contract ${contractAddress} doesn't allow DAI as a currency`;
       return res.status(400).send({
         error: true,
         message,
