@@ -16,9 +16,9 @@ describe('calculateRisk()', function () {
       [22501, '19.19'],
       [32501, '14.83'],
       [60001, '7.04'],
-      [77501, '3.58'],
-      [97501, '1'],
-      [110001, '1'],
+      [77501, '4'],
+      [97501, '4'],
+      [110001, '4'],
     ];
     for (const [stakedNXM, expectedRisk] of inputAndExpected) {
       const risk = QuoteEngine.calculateRisk(Decimal(stakedNXM).mul(1e18));
