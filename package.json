@@ -23,6 +23,7 @@
     "winston": "^3.3.3"
   },
   "devDependencies": {
+    "@openzeppelin/cli": "^2.8.2",
     "@openzeppelin/test-environment": "^0.1.4",
     "eslint": "^6.8.0",
     "eslint-config-semistandard": "^15.0.0",
