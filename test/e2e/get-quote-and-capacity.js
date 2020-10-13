@@ -7,6 +7,7 @@ const { initApp } = require('../../src/app');
 const { ApiKey, Cover } = require('../../src/models');
 const { covers } = require('./smarcoverdetails-test-data');
 const { getWhitelist } = require('../../src/contract-whitelist');
+const { DAI_COVER_DENYLIST } = require('../../src/constants');
 
 const MongoMemoryServer = require('mongodb-memory-server').MongoMemoryServer;
 const mongoose = require('mongoose');
@@ -25,6 +26,18 @@ function chunk (arr, chunkSize) {
 }
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+const getWhitelistArr = async () => {
+  const whitelistArray = [];
+  const whitelist = await getWhitelist();
+  for (const address of Object.keys(whitelist)) {
+    if (!whitelist[address].deprecated) {
+      whitelist[address] = { ...whitelist[address], address };
+      whitelistArray.push(whitelist[address]);
+    }
+  }
+  return whitelistArray;
+};
 
 describe('GET quotes', function () {
   const PORT = 3000;
@@ -87,7 +100,7 @@ describe('GET quotes', function () {
       const dependantContract = '0x7fC77b5c7614E1533320Ea6DDc2Eb61fa00A9714'.toLowerCase();
       const smartCoverDetailsList = covers();
       smartCoverDetailsList.forEach(cover => {
-        // eslint-disable-next-line
+        // eslint-disable-next-line no-param-reassign
         cover.smartContractAdd = dependantContract;
       });
       await Cover.insertMany(smartCoverDetailsList);
@@ -103,7 +116,7 @@ describe('GET quotes', function () {
       const contractAddress = '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f';
       const smartCoverDetailsList = covers();
       smartCoverDetailsList.forEach(cover => {
-        // eslint-disable-next-line
+        // eslint-disable-next-line no-param-reassign
         cover.smartContractAdd = contractAddress;
       });
       await Cover.insertMany(smartCoverDetailsList);
@@ -143,7 +156,7 @@ describe('GET quotes', function () {
       const contractAddress = '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B';
       const smartCoverDetailsList = covers();
       smartCoverDetailsList.forEach(cover => {
-        // eslint-disable-next-line
+        // eslint-disable-next-line no-param-reassign
         cover.smartContractAdd = contractAddress;
       });
       await Cover.insertMany(smartCoverDetailsList);
@@ -168,7 +181,7 @@ describe('GET quotes', function () {
       const secondContractAddress = '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B';
       const smartCoverDetailsList = covers();
       smartCoverDetailsList.forEach(cover => {
-        // eslint-disable-next-line
+        // eslint-disable-next-line no-param-reassign
         cover.smartContractAdd = contractAddress;
       });
       await Cover.insertMany(smartCoverDetailsList);
@@ -194,7 +207,7 @@ describe('GET quotes', function () {
       const contractAddress = '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f'; // uniswap v2
       const smartCoverDetailsList = covers();
       smartCoverDetailsList.forEach(cover => {
-        // eslint-disable-next-line
+        // eslint-disable-next-line no-param-reassign
         cover.smartContractAdd = contractAddress;
       });
       await Cover.insertMany(smartCoverDetailsList);
@@ -220,39 +233,54 @@ describe('GET quotes', function () {
       assert.strictEqual(status, 400);
     });
 
-    it('responds with 200 for all currently whitelisted contracts for ETH and DAI quotes', async function () {
-      const whitelistArray = [];
-      const whitelist = await getWhitelist();
-      for (const address of Object.keys(whitelist)) {
-        if (!whitelist[address].deprecated) {
-          whitelist[address] = { ...whitelist[address], address };
-          whitelistArray.push(whitelist[address]);
-        }
-      }
+    it('responds with 400 for contracts in DAI_COVER_DENYLIST when using DAI', async function () {
+      const coverAmount = '1';
+      const currency = 'DAI';
+      const period = 100;
+      const calls = DAI_COVER_DENYLIST.map(x => requestQuote(coverAmount, currency, period, x));
+      const responses = await Promise.all(calls);
+      const statuses = responses.map(x => x.status);
+      statuses.forEach((status, i) => {
+        assert.strictEqual(status, 400, `Failed for ${JSON.stringify(DAI_COVER_DENYLIST[i])}`);
+      });
+    });
+
+    it('responds with 200 for all currently whitelisted contracts for ETH quotes', async function () {
+      const whitelistArray = await getWhitelistArr();
       const ethCoverAmount = '100';
-      const daiCoverAmount = '100';
       const period = 100;
 
-      const chunks = chunk(whitelistArray, 1);
+      const chunks = chunk(whitelistArray, 8);
       const results = [];
       for (const chunk of chunks) {
 
         await Promise.all(chunk.map(async contract => {
 
-          let { status, body } = await requestQuote(ethCoverAmount, 'ETH', period, contract.address);
+          const { status, body } = await requestQuote(ethCoverAmount, 'ETH', period, contract.address);
           assert.strictEqual(status, 200, `Failed for ${JSON.stringify(contract)}`);
           results.push({ ...body, ...contract });
 
-          await sleep(QUOTE_SIGN_MIN_INTERVAL_MILLIS);
+        }));
+        await sleep(QUOTE_SIGN_MIN_INTERVAL_MILLIS);
+      }
+      console.log(results);
+    });
 
-          const response = await requestQuote(daiCoverAmount, 'DAI', period, contract.address);
-          status = response.status;
-          body = response.body;
+    it('responds with 200 for all currently whitelisted contracts not in DAI_COVER_DENYLIST for DAI quotes', async function () {
+      const whitelistArray = await getWhitelistArr();
+      const daiCoverAmount = '100';
+      const period = 100;
+
+      const chunks = chunk(whitelistArray, 8);
+      const results = [];
+      for (const chunk of chunks) {
+        await Promise.all(chunk.filter(({ address }) => !DAI_COVER_DENYLIST.includes(address.toLowerCase())).map(async contract => {
+          const { status, body } = await requestQuote(daiCoverAmount, 'DAI', period, contract.address);
           assert.strictEqual(status, 200, `Failed for ${JSON.stringify(contract)}`);
           results.push({ ...body, ...contract });
         }));
+        await sleep(QUOTE_SIGN_MIN_INTERVAL_MILLIS);
       }
-      console.log(results);
     });
   });
 });

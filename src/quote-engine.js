@@ -10,31 +10,15 @@ const { hex } = require('./utils');
 const log = require('./log');
 const Cover = require('./models/cover');
 const { getWhitelist } = require('./contract-whitelist');
-
-const DAYS_PER_YEAR = Decimal('365.25');
-const CONTRACT_CAPACITY_LIMIT_PERCENT = Decimal('0.2');
-const COVER_PRICE_SURPLUS_MARGIN = Decimal('0.3');
-const CAPACITY_FACTOR = Decimal('2');
-
-const DEPENDANT_CONTRACTS = {
-  // Curve All Pools (incl staking)
-  '0x79a8c46dea5ada233abaffd40f3a0a2b1e5a4f27': [
-    // Curve BTC Pools
-    '0x7fc77b5c7614e1533320ea6ddc2eb61fa00a9714',
-  ],
-};
-
-const MCR_CAPACITY_FACTORS = {
-  // SushiSwap
-  '0xc2edad668740f1aa35e4d8f227fb8e17dca888cd': Decimal(0.5),
-  // Uniswap V2
-  '0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f': Decimal(0.5),
-};
-
-const CAPACITY_LIMIT = {
-  STAKED_CAPACITY: 'STAKED_CAPACITY',
-  MCR_CAPACITY: 'MCR_CAPACITY',
-};
+const {
+  DEPENDANT_CONTRACTS,
+  MCR_CAPACITY_FACTORS,
+  DAYS_PER_YEAR,
+  CONTRACT_CAPACITY_LIMIT_PERCENT,
+  COVER_PRICE_SURPLUS_MARGIN,
+  CAPACITY_FACTOR,
+  CAPACITY_LIMIT,
+} = require('./constants');
 
 class QuoteEngine {
 
