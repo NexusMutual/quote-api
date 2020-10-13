@@ -9,6 +9,7 @@ const LegacyQuoteReason = {
   CAPACITY_LIMIT_EXCEEDED: 'capacityLimitExceed',
   OK: 'ok',
 };
+const quoteValidity = 300;
 
 describe('calculateQuote()', function () {
   describe('respects input values and returns correct timestamps', function () {
@@ -53,7 +54,7 @@ describe('calculateQuote()', function () {
     });
 
     it('returns correct expiration time', function () {
-      assert.strictEqual(Math.ceil(now.getTime() / 1000 + 3600), quoteData.expiresAt);
+      assert.strictEqual(Math.ceil(now.getTime() / 1000 + quoteValidity), quoteData.expiresAt);
     });
 
     it('evaluates correct legacy reason', function () {
@@ -148,7 +149,7 @@ describe('calculateQuote()', function () {
       );
       assert.strictEqual(quoteData.error, LegacyQuoteReason.UNCOVERABLE);
       assert.strictEqual(now.getTime(), quoteData.generatedAt);
-      assert.strictEqual(Math.ceil(now.getTime() / 1000 + 3600), quoteData.expiresAt);
+      assert.strictEqual(Math.ceil(now.getTime() / 1000 + quoteValidity), quoteData.expiresAt);
     });
 
     it('returns the cover price in ETH and NXM for 1000 cover and current active covers', function () {
