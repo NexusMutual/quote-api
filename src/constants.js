@@ -14,10 +14,6 @@ const DEPENDANT_CONTRACTS = {
 };
 
 const MCR_CAPACITY_FACTORS = {
-  // SushiSwap
-  '0xc2edad668740f1aa35e4d8f227fb8e17dca888cd': Decimal(0.5),
-  // Uniswap V2
-  '0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f': Decimal(0.5),
 };
 
 const DAYS_PER_YEAR = Decimal('365.25');
