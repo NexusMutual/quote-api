@@ -5,7 +5,6 @@ const log = require('./log');
 const QuoteEngine = require('./quote-engine');
 const { getWhitelist } = require('./contract-whitelist');
 const httpContext = require('express-http-context');
-const { toLegacyFormatResponse } = require('./legacy-formatting');
 const { DAI_COVER_DENYLIST } = require('./constants');
 
 const asyncRoute = route => (req, res) => {

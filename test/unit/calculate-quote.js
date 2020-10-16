@@ -2,7 +2,6 @@ const assert = require('assert');
 const Decimal = require('decimal.js');
 const { to2Decimals } = require('./testing-utils');
 const QuoteEngine = require('../../src/quote-engine');
-const { toLegacyFormatResponse } = require('../../src/legacy-formatting');
 
 const LegacyQuoteReason = {
   UNCOVERABLE: 'Uncoverable',
@@ -56,10 +55,6 @@ describe('calculateQuote()', function () {
     it('returns correct expiration time', function () {
       assert.strictEqual(Math.ceil(now.getTime() / 1000 + quoteValidity), quoteData.expiresAt);
     });
-
-    it('evaluates correct legacy reason', function () {
-      assert.strictEqual(toLegacyFormatResponse(quoteData, amount).reason, LegacyQuoteReason.OK);
-    });
   });
 
   describe('calculates ETH quotes correctly', function () {
@@ -96,8 +91,6 @@ describe('calculateQuote()', function () {
         to2Decimals(quoteData.amount),
         to2Decimals(expectedCoverAmountOffered),
       );
-
-      assert.strictEqual(toLegacyFormatResponse(quoteData, amount).reason, reason);
     }
 
     it('returns the cover price in ETH and NXM for 1000 cover and no current active covers', function () {
@@ -204,8 +197,6 @@ describe('calculateQuote()', function () {
         to2Decimals(quoteData.amount),
         to2Decimals(expectedCoverAmountOffered),
       );
-
-      assert.strictEqual(toLegacyFormatResponse(quoteData, amount).reason, reason);
     }
 
     it('returns the cover price in DAI and NXM for 800000 cover exceeding global capacity', function () {

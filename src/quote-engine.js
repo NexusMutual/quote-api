@@ -8,7 +8,6 @@ const NodeCache = require('node-cache');
 const utils = require('./utils');
 const { hex } = require('./utils');
 const log = require('./log');
-const Cover = require('./models/cover');
 const { getWhitelist } = require('./contract-whitelist');
 const {
   DEPENDANT_CONTRACTS,
@@ -19,6 +18,8 @@ const {
   CAPACITY_FACTOR,
   CAPACITY_LIMIT,
 } = require('./constants');
+
+const CURRENCIES = ['ETH', 'DAI'];
 
 class QuoteEngine {
 
@@ -57,18 +58,20 @@ class QuoteEngine {
    * @param {Decimal} netStakedNxm
    * @param {Decimal} nxmPriceEth
    * @param {Decimal} minCapETH
-   * @param {[object]} activeCovers
+   * @param {[object]} activeCoverAmounts
    * @param {object} currencyRates
    * @param {Decimal} capacityFactor
    * @param {Decimal} mcrCapacityFactor
    * @return {{ capacity: Decimal, limit: string }}
    */
   static calculateCapacity (
-    netStakedNxm, nxmPriceEth, minCapETH, activeCovers, currencyRates, capacityFactor, mcrCapacityFactor,
+    netStakedNxm, nxmPriceEth, minCapETH, activeCoverAmounts, currencyRates, capacityFactor, mcrCapacityFactor,
   ) {
     const maxMCRCapacity = minCapETH.mul(CONTRACT_CAPACITY_LIMIT_PERCENT).mul(mcrCapacityFactor);
     const netStakedNxmEthValue = netStakedNxm.mul(nxmPriceEth).div('1e18');
-    const activeCoversEthValues = activeCovers.map(cover => currencyRates[cover.currency].mul(cover.sumAssured));
+    const activeCoversEthValues = activeCoverAmounts.map(
+      coverAmount => currencyRates[coverAmount.currency].mul(coverAmount.sumAssured))
+    ;
     const activeCoversSumEthValue = activeCoversEthValues.reduce((a, b) => a.add(b), Decimal(0));
 
     const maxStakedCapacity = netStakedNxmEthValue.mul(capacityFactor);
@@ -187,26 +190,31 @@ class QuoteEngine {
   /**
    * Fetches List of active covers for contract at time 'now'.
    * @param {string} contractAddress
-   * @param {Date} now
    * @return {[{ contractAddress: string, sumAssured: Decimal, currency: string }]}
    */
-  static async getActiveCovers (contractAddress, now) {
-
+  async getActiveCoverAmounts (contractAddress) {
+    const qd = this.nexusContractLoader.instance('QD');
     const lowerCasedContractAddress = contractAddress.toLowerCase();
     const contractAddresses = DEPENDANT_CONTRACTS[lowerCasedContractAddress] ? DEPENDANT_CONTRACTS[lowerCasedContractAddress] : [];
     contractAddresses.push(lowerCasedContractAddress);
     const contractAddressesLowerCased = contractAddresses.map(a => a.toLowerCase());
-    const storedActiveCovers = await Cover.find({
-      expirytimeStamp: { $gt: now.getTime() / 1000 },
-      lockCN: { $ne: '0' },
-      smartContractAdd: { $in: contractAddressesLowerCased },
-    });
 
-    return storedActiveCovers.map(stored => ({
-      contractAddress: stored.smartContractAdd,
-      sumAssured: stored.sumAssured,
-      currency: stored.curr,
+    const activeCoverAmounts = await Promise.all(contractAddressesLowerCased.map(async (contractAddress) => {
+      const amounts = await Promise.all(
+        CURRENCIES.map(async (currency) => {
+          const sumAssured = await qd.getTotalSumAssuredSC(contractAddress, hex(currency));
+          return {
+            sumAssured: Decimal(sumAssured.toString()),
+            contractAddress,
+            currency,
+          };
+        }),
+      );
+      return amounts;
     }));
+
+    const flattened = activeCoverAmounts.reduce((acc, val) => acc.concat(val), []);
+    return flattened;
   }
 
   /**
@@ -286,7 +294,7 @@ class QuoteEngine {
    * @param {Decimal} nxmPrice Amount of wei for 1 NXM
    * @param {Decimal} netStakedNxm
    * @param {Decimal} minCapETH
-   * @param {[{ contractAddress: string, sumAssured: Decimal, currency: string }]} activeCovers
+   * @param {[{ contractAddress: string, sumAssured: Decimal, currency: string }]} activeCoverAmounts
    * @param {object} currencyRates
    * @param {Date} now
    * @param {Decimal} capacityFactor
@@ -317,7 +325,7 @@ class QuoteEngine {
     nxmPrice,
     netStakedNxm,
     minCapETH,
-    activeCovers,
+    activeCoverAmounts,
     currencyRates,
     now,
     capacityFactor,
@@ -336,7 +344,7 @@ class QuoteEngine {
     }
 
     const { capacity: maxCapacity } = QuoteEngine.calculateCapacity(
-      netStakedNxm, nxmPrice, minCapETH, activeCovers, currencyRates, capacityFactor, mcrCapacityFactor,
+      netStakedNxm, nxmPrice, minCapETH, activeCoverAmounts, currencyRates, capacityFactor, mcrCapacityFactor,
     );
     const requestedCoverAmountInWei = requestedCoverAmount.mul(coverCurrencyRate);
 
@@ -440,7 +448,8 @@ class QuoteEngine {
       throw e;
     }
 
-    const activeCovers = await QuoteEngine.getActiveCovers(lowerCasedContractAddress, now);
+    const activeCoverAmounts = await this.getActiveCoverAmounts(lowerCasedContractAddress);
+    log.info(`Detected active cover amounts: ${JSON.stringify(activeCoverAmounts)}.`);
 
     const [currencyRates, nxmPrice, netStakedNxm, minCapETH] = await Promise.all([
       this.getCurrencyRates(),
@@ -470,7 +479,7 @@ class QuoteEngine {
       nxmPrice,
       netStakedNxm,
       minCapETH,
-      activeCovers,
+      activeCoverAmounts,
       currencyRates,
       now,
       capacityFactor,
@@ -504,8 +513,7 @@ class QuoteEngine {
       return cachedCapacity;
     }
 
-    const now = new Date();
-    const activeCovers = await QuoteEngine.getActiveCovers(contractAddress, now);
+    const activeCoverAmounts = await this.getActiveCoverAmounts(contractAddress);
     const [netStakedNXM, minCapETH, nxmPrice, currencyRates] = await Promise.all([
       this.getNetStakedNxm(contractAddress),
       this.getLastMcrEth(),
@@ -513,12 +521,12 @@ class QuoteEngine {
       this.getCurrencyRates(),
     ]);
 
-    log.info(`Detected ${activeCovers.length} active covers.`);
+    log.info(`Detected active cover amounts: ${JSON.stringify(activeCoverAmounts)}.`);
     const capacityFactor = this.getCapacityFactor(new Date(contractData.dateAdded));
     const mcrCapacityFactor = this.getMCRCapacityFactor(contractAddress);
     log.info(JSON.stringify({ netStakedNXM, minCapETH, nxmPrice, currencyRates, capacityFactor }));
     const { capacity: capacityETH, capacityLimit } = QuoteEngine.calculateCapacity(
-      netStakedNXM, nxmPrice, minCapETH, activeCovers, currencyRates, capacityFactor, mcrCapacityFactor,
+      netStakedNXM, nxmPrice, minCapETH, activeCoverAmounts, currencyRates, capacityFactor, mcrCapacityFactor,
     );
     log.info(`Computed capacity for ${contractData.name}(${contractAddress}): ${capacityETH.toFixed()}`);
 
