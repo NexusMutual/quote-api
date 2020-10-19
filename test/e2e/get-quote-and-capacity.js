@@ -4,7 +4,7 @@ const request = require('supertest');
 const fetch = require('node-fetch');
 const Decimal = require('decimal.js');
 const { initApp } = require('../../src/app');
-const { ApiKey } = require('../../src/models');
+const { WhitelistedOrigin } = require('../../src/models');
 const { getWhitelist } = require('../../src/contract-whitelist');
 const { DAI_COVER_DENYLIST } = require('../../src/constants');
 
@@ -43,7 +43,6 @@ describe('GET quotes', function () {
 
   this.timeout(300000);
   let app;
-  const API_KEY = 'my_magical_key';
   const ORIGIN = 'my_magical_origin';
 
   async function requestQuote (amount, currency, period, contractAddress) {
@@ -51,14 +50,14 @@ describe('GET quotes', function () {
       .get(
         `/v1/quote?coverAmount=${amount}&currency=${currency}&period=${period}&contractAddress=${contractAddress}`,
       )
-      .set({ 'x-api-key': API_KEY, origin: ORIGIN });
+      .set({ origin: ORIGIN });
     return response;
   }
 
   async function requestCapacity (contractAddress) {
     const response = await request(app)
       .get(`/v1/contracts/${contractAddress}/capacity`)
-      .set({ 'x-api-key': API_KEY, origin: ORIGIN });
+      .set({ origin: ORIGIN });
     return response;
   }
 
@@ -71,7 +70,7 @@ describe('GET quotes', function () {
     const opts = { useNewUrlParser: true, useUnifiedTopology: true };
     await mongoose.connect(uri, opts);
 
-    process.env.PROVIDER_URL = 'http://10.2.3.14:8545';
+    process.env.PROVIDER_URL = 'https://parity.nexusmutual.io';
     process.env.VERSION_DATA_URL = 'https://api.nexusmutual.io/version-data/data.json';
     process.env.NETWORK = 'mainnet';
     process.env.PRIVATE_KEY = '45571723d6f6fa704623beb284eda724459d76cc68e82b754015d6e7af794cc8';
@@ -79,7 +78,7 @@ describe('GET quotes', function () {
     process.env.CAPACITY_FACTOR_END_DATE = '08/10/2020';
     process.env.QUOTE_SIGN_MIN_INTERVAL_SECONDS = (Math.floor(QUOTE_SIGN_MIN_INTERVAL_MILLIS / 1000)).toString();
 
-    await ApiKey.create({ apiKey: API_KEY, origin: ORIGIN });
+    await WhitelistedOrigin.create({ origin: ORIGIN });
 
     app = await initApp();
     await new Promise(resolve => app.listen(PORT, resolve));
@@ -115,7 +114,7 @@ describe('GET quotes', function () {
       const expectedCapacitiesLength = Object.keys(whitelist).length;
       const { status, body } = await request(app)
         .get(`/v1/capacities`)
-        .set({ 'x-api-key': API_KEY, origin: ORIGIN });
+        .set({ origin: ORIGIN });
 
       assert.strictEqual(status, 200);
       assert.strictEqual(body.length, expectedCapacitiesLength);
@@ -128,7 +127,7 @@ describe('GET quotes', function () {
     });
   });
 
-  describe.only('GET /v1/quote', function () {
+  describe('GET /v1/quote', function () {
     it('responds with a valid quote for a production contract for ETH', async function () {
       const coverAmount = '1000';
       const currency = 'ETH';

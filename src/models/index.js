@@ -1,5 +1,5 @@
-const ApiKey = require('./api-key');
+const WhitelistedOrigin = require('./whitelisted-origin');
 
 module.exports = {
-  ApiKey,
+  WhitelistedOrigin,
 };

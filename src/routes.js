@@ -1,6 +1,6 @@
 const express = require('express');
 const uuid = require('uuid');
-const ApiKey = require('./models/api-key');
+const { WhitelistedOrigin } = require('./models');
 const log = require('./log');
 const QuoteEngine = require('./quote-engine');
 const { getWhitelist } = require('./contract-whitelist');
@@ -49,8 +49,7 @@ module.exports = quoteEngine => {
 
   app.get('/v1/quote', asyncRoute(async (req, res) => {
     const origin = req.get('origin');
-    const apiKey = req.headers['x-api-key'];
-    const isAllowed = await isOriginAllowed(origin, apiKey);
+    const isAllowed = await isOriginAllowed(origin);
 
     if (!isAllowed) {
       return res.status(403).send({
@@ -108,8 +107,7 @@ module.exports = quoteEngine => {
 
   app.get('/v1/contracts/:contractAddress/capacity', asyncRoute(async (req, res) => {
     const origin = req.get('origin');
-    const apiKey = req.headers['x-api-key'];
-    const isAllowed = await isOriginAllowed(origin, apiKey);
+    const isAllowed = await isOriginAllowed(origin);
 
     if (!isAllowed) {
       return res.status(403).send({
@@ -149,8 +147,7 @@ module.exports = quoteEngine => {
 
   app.get('/v1/capacities', asyncRoute(async (req, res) => {
     const origin = req.get('origin');
-    const apiKey = req.headers['x-api-key'];
-    const isAllowed = await isOriginAllowed(origin, apiKey);
+    const isAllowed = await isOriginAllowed(origin);
 
     if (!isAllowed) {
       return res.status(403).send({
@@ -166,17 +163,12 @@ module.exports = quoteEngine => {
   return app;
 };
 
-async function isOriginAllowed (origin, apiKey) {
+async function isOriginAllowed (origin) {
 
   if (/\.nexusmutual\.io$/.test(origin)) {
     return true;
   }
-
-  if (!apiKey) { // null, undefined, etc
-    return false;
-  }
-
-  const storedApiKey = await ApiKey.findOne({ origin, apiKey });
+  const storedApiKey = await WhitelistedOrigin.findOne({ origin });
 
   return storedApiKey !== null;
 }
