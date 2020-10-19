@@ -47,7 +47,8 @@ module.exports = quoteEngine => {
     next();
   });
 
-  app.get('/v1/quote', asyncRoute(async (req, res) => {
+  app.use(async (req, res, next) => {
+
     const origin = req.get('origin');
     const isAllowed = await isOriginAllowed(origin);
 
@@ -57,6 +58,11 @@ module.exports = quoteEngine => {
         message: 'Origin not allowed. Contact us for an API key',
       });
     }
+    next();
+  });
+
+  app.get('/v1/quote', asyncRoute(async (req, res) => {
+
     const coverAmount = req.query.coverAmount;
     const currency = req.query.currency;
     const period = req.query.period;
@@ -106,15 +112,6 @@ module.exports = quoteEngine => {
   }));
 
   app.get('/v1/contracts/:contractAddress/capacity', asyncRoute(async (req, res) => {
-    const origin = req.get('origin');
-    const isAllowed = await isOriginAllowed(origin);
-
-    if (!isAllowed) {
-      return res.status(403).send({
-        error: true,
-        message: 'Origin not allowed. Contact us for an API key',
-      });
-    }
 
     const { contractAddress } = req.params;
     QuoteEngine.validateCapacityParameters();
@@ -146,15 +143,6 @@ module.exports = quoteEngine => {
   }));
 
   app.get('/v1/capacities', asyncRoute(async (req, res) => {
-    const origin = req.get('origin');
-    const isAllowed = await isOriginAllowed(origin);
-
-    if (!isAllowed) {
-      return res.status(403).send({
-        error: true,
-        message: 'Origin not allowed. Contact us for an API key',
-      });
-    }
 
     const capacities = await quoteEngine.getCapacities();
     res.send(capacities.map(capacity => {

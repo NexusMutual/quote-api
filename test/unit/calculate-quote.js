@@ -73,7 +73,7 @@ describe('calculateQuote()', function () {
     const mcrCapacityFactor = Decimal('1');
 
     function assertETHAndNXMPrices (
-      amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered, reason,
+      amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered
     ) {
 
       const quoteData = QuoteEngine.calculateQuote(
@@ -179,7 +179,7 @@ describe('calculateQuote()', function () {
     const mcrCapacityFactor = Decimal('1');
 
     function assertETHAndNXMPrices (
-      amount, period, stakedNxm, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered, reason,
+      amount, period, stakedNxm, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered,
     ) {
 
       const quoteData = QuoteEngine.calculateQuote(

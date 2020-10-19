@@ -1,7 +1,6 @@
 require('dotenv').config();
 const assert = require('assert');
 const request = require('supertest');
-const fetch = require('node-fetch');
 const Decimal = require('decimal.js');
 const { initApp } = require('../../src/app');
 const { WhitelistedOrigin } = require('../../src/models');
@@ -82,6 +81,16 @@ describe('GET quotes', function () {
 
     app = await initApp();
     await new Promise(resolve => app.listen(PORT, resolve));
+  });
+
+  describe('origin whitelisting', async function () {
+    it('responds with 403 if the origin is not whitelisted', async function () {
+      const contractAddress = '0xB27F1DB0a7e473304A5a06E54bdf035F671400C0';
+      const { status } = await request(app)
+        .get(`/v1/contracts/${contractAddress}/capacity`)
+        .set({ origin: 'http://evilorigin.com' });
+      assert.strictEqual(status, 403);
+    });
   });
 
   describe('GET /v1/contracts/:contractAddress/capacity', async function () {

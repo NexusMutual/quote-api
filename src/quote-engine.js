@@ -17,9 +17,8 @@ const {
   COVER_PRICE_SURPLUS_MARGIN,
   CAPACITY_FACTOR,
   CAPACITY_LIMIT,
+  CURRENCIES,
 } = require('./constants');
-
-const CURRENCIES = ['ETH', 'DAI'];
 
 class QuoteEngine {
 
@@ -70,8 +69,8 @@ class QuoteEngine {
     const maxMCRCapacity = minCapETH.mul(CONTRACT_CAPACITY_LIMIT_PERCENT).mul(mcrCapacityFactor);
     const netStakedNxmEthValue = netStakedNxm.mul(nxmPriceEth).div('1e18');
     const activeCoversEthValues = activeCoverAmounts.map(
-      coverAmount => currencyRates[coverAmount.currency].mul(coverAmount.sumAssured))
-    ;
+      coverAmount => currencyRates[coverAmount.currency].mul(coverAmount.sumAssured),
+    );
     const activeCoversSumEthValue = activeCoversEthValues.reduce((a, b) => a.add(b), Decimal(0));
 
     const maxStakedCapacity = netStakedNxmEthValue.mul(capacityFactor);
@@ -199,7 +198,8 @@ class QuoteEngine {
     contractAddresses.push(lowerCasedContractAddress);
     const contractAddressesLowerCased = contractAddresses.map(a => a.toLowerCase());
 
-    const activeCoverAmounts = await Promise.all(contractAddressesLowerCased.map(async (contractAddress) => {
+    const activeCoverAmounts = [];
+    for (const contractAddress of contractAddressesLowerCased) {
       const amounts = await Promise.all(
         CURRENCIES.map(async (currency) => {
           const sumAssured = await qd.getTotalSumAssuredSC(contractAddress, hex(currency));
@@ -210,11 +210,10 @@ class QuoteEngine {
           };
         }),
       );
-      return amounts;
-    }));
+      activeCoverAmounts.push(...amounts);
+    }
 
-    const flattened = activeCoverAmounts.reduce((acc, val) => acc.concat(val), []);
-    return flattened;
+    return activeCoverAmounts;
   }
 
   /**
