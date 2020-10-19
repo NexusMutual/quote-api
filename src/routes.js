@@ -156,8 +156,10 @@ module.exports = quoteEngine => {
       });
     }
 
-    const mockResponse = require('./tempMockCapacities');
-    res.send(mockResponse);
+    const capacities = await quoteEngine.getCapacities();
+    res.send(capacities.map(capacity => {
+      return { ...prettyPrintCapacityResponse(capacity), contractAddress: capacity.contractAddress };
+    }));
   }));
 
   return app;
