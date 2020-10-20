@@ -1,11 +1,10 @@
 const express = require('express');
 const uuid = require('uuid');
-const ApiKey = require('./models/api-key');
+const { WhitelistedOrigin } = require('./models');
 const log = require('./log');
 const QuoteEngine = require('./quote-engine');
 const { getWhitelist } = require('./contract-whitelist');
 const httpContext = require('express-http-context');
-const { toLegacyFormatResponse } = require('./legacy-formatting');
 const { DAI_COVER_DENYLIST } = require('./constants');
 
 const asyncRoute = route => (req, res) => {
@@ -48,10 +47,10 @@ module.exports = quoteEngine => {
     next();
   });
 
-  app.get('/v1/quote', asyncRoute(async (req, res) => {
+  app.use(async (req, res, next) => {
+
     const origin = req.get('origin');
-    const apiKey = req.headers['x-api-key'];
-    const isAllowed = await isOriginAllowed(origin, apiKey);
+    const isAllowed = await isOriginAllowed(origin);
 
     if (!isAllowed) {
       return res.status(403).send({
@@ -59,6 +58,11 @@ module.exports = quoteEngine => {
         message: 'Origin not allowed. Contact us for an API key',
       });
     }
+    next();
+  });
+
+  app.get('/v1/quote', asyncRoute(async (req, res) => {
+
     const coverAmount = req.query.coverAmount;
     const currency = req.query.currency;
     const period = req.query.period;
@@ -108,16 +112,6 @@ module.exports = quoteEngine => {
   }));
 
   app.get('/v1/contracts/:contractAddress/capacity', asyncRoute(async (req, res) => {
-    const origin = req.get('origin');
-    const apiKey = req.headers['x-api-key'];
-    const isAllowed = await isOriginAllowed(origin, apiKey);
-
-    if (!isAllowed) {
-      return res.status(403).send({
-        error: true,
-        message: 'Origin not allowed. Contact us for an API key',
-      });
-    }
 
     const { contractAddress } = req.params;
     QuoteEngine.validateCapacityParameters();
@@ -149,16 +143,6 @@ module.exports = quoteEngine => {
   }));
 
   app.get('/v1/capacities', asyncRoute(async (req, res) => {
-    const origin = req.get('origin');
-    const apiKey = req.headers['x-api-key'];
-    const isAllowed = await isOriginAllowed(origin, apiKey);
-
-    if (!isAllowed) {
-      return res.status(403).send({
-        error: true,
-        message: 'Origin not allowed. Contact us for an API key',
-      });
-    }
 
     const capacities = await quoteEngine.getCapacities();
     res.send(capacities.map(capacity => {
@@ -169,17 +153,12 @@ module.exports = quoteEngine => {
   return app;
 };
 
-async function isOriginAllowed (origin, apiKey) {
+async function isOriginAllowed (origin) {
 
   if (/\.nexusmutual\.io$/.test(origin)) {
     return true;
   }
-
-  if (!apiKey) { // null, undefined, etc
-    return false;
-  }
-
-  const storedApiKey = await ApiKey.findOne({ origin, apiKey });
+  const storedApiKey = await WhitelistedOrigin.findOne({ origin });
 
   return storedApiKey !== null;
 }

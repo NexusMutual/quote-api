@@ -1,11 +1,9 @@
 require('dotenv').config();
 const assert = require('assert');
 const request = require('supertest');
-const fetch = require('node-fetch');
 const Decimal = require('decimal.js');
 const { initApp } = require('../../src/app');
-const { ApiKey, Cover } = require('../../src/models');
-const { covers } = require('./smarcoverdetails-test-data');
+const { WhitelistedOrigin } = require('../../src/models');
 const { getWhitelist } = require('../../src/contract-whitelist');
 const { DAI_COVER_DENYLIST } = require('../../src/constants');
 
@@ -44,7 +42,6 @@ describe('GET quotes', function () {
 
   this.timeout(300000);
   let app;
-  const API_KEY = 'my_magical_key';
   const ORIGIN = 'my_magical_origin';
 
   async function requestQuote (amount, currency, period, contractAddress) {
@@ -52,14 +49,14 @@ describe('GET quotes', function () {
       .get(
         `/v1/quote?coverAmount=${amount}&currency=${currency}&period=${period}&contractAddress=${contractAddress}`,
       )
-      .set({ 'x-api-key': API_KEY, origin: ORIGIN });
+      .set({ origin: ORIGIN });
     return response;
   }
 
   async function requestCapacity (contractAddress) {
     const response = await request(app)
       .get(`/v1/contracts/${contractAddress}/capacity`)
-      .set({ 'x-api-key': API_KEY, origin: ORIGIN });
+      .set({ origin: ORIGIN });
     return response;
   }
 
@@ -80,51 +77,42 @@ describe('GET quotes', function () {
     process.env.CAPACITY_FACTOR_END_DATE = '08/10/2020';
     process.env.QUOTE_SIGN_MIN_INTERVAL_SECONDS = (Math.floor(QUOTE_SIGN_MIN_INTERVAL_MILLIS / 1000)).toString();
 
-    await ApiKey.create({ apiKey: API_KEY, origin: ORIGIN });
+    await WhitelistedOrigin.create({ origin: ORIGIN });
 
     app = await initApp();
     await new Promise(resolve => app.listen(PORT, resolve));
   });
 
-  afterEach(async function () {
-    try {
-      await Cover.collection.drop();
-    } catch (e) {
-      console.log(`Error in afterEach: ${e}`);
-    }
+  describe('origin whitelisting', async function () {
+    it('responds with 403 if the origin is not whitelisted', async function () {
+      const contractAddress = '0xB27F1DB0a7e473304A5a06E54bdf035F671400C0';
+      const { status } = await request(app)
+        .get(`/v1/contracts/${contractAddress}/capacity`)
+        .set({ origin: 'http://evilorigin.com' });
+      assert.strictEqual(status, 403);
+    });
   });
 
   describe('GET /v1/contracts/:contractAddress/capacity', async function () {
     it('responds with 200 for a production contract', async function () {
-      const contractAddress = '0x79a8C46DeA5aDa233ABaFFD40F3A0A2B1e5A4F27';
-      const dependantContract = '0x7fC77b5c7614E1533320Ea6DDc2Eb61fa00A9714'.toLowerCase();
-      const smartCoverDetailsList = covers();
-      smartCoverDetailsList.forEach(cover => {
-        // eslint-disable-next-line no-param-reassign
-        cover.smartContractAdd = dependantContract;
-      });
-      await Cover.insertMany(smartCoverDetailsList);
+      const contractAddress = '0xB27F1DB0a7e473304A5a06E54bdf035F671400C0';
+
       const { status, body } = await requestCapacity(contractAddress);
       assert(Decimal(body.capacityETH).isInteger());
       assert(Decimal(body.capacityDAI).isInteger());
       assert(Decimal(body.netStakedNXM).isInteger());
-      assert.strictEqual(body.capacityLimit, 'MCR_CAPACITY');
+      assert.strictEqual(body.capacityLimit, 'STAKED_CAPACITY');
       assert.strictEqual(status, 200);
     });
 
     it('responds with 200 for a production contract with a defined MCR factor', async function () {
       const contractAddress = '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f';
-      const smartCoverDetailsList = covers();
-      smartCoverDetailsList.forEach(cover => {
-        // eslint-disable-next-line no-param-reassign
-        cover.smartContractAdd = contractAddress;
-      });
-      await Cover.insertMany(smartCoverDetailsList);
+
       const { status, body } = await requestCapacity(contractAddress);
       assert(Decimal(body.capacityETH).isInteger());
       assert(Decimal(body.capacityDAI).isInteger());
       assert(Decimal(body.netStakedNXM).isInteger());
-      assert.strictEqual(body.capacityLimit, 'MCR_CAPACITY');
+      assert.strictEqual(body.capacityLimit, 'STAKED_CAPACITY');
       assert.strictEqual(status, 200);
     });
   });
@@ -135,7 +123,7 @@ describe('GET quotes', function () {
       const expectedCapacitiesLength = Object.keys(whitelist).length;
       const { status, body } = await request(app)
         .get(`/v1/capacities`)
-        .set({ 'x-api-key': API_KEY, origin: ORIGIN });
+        .set({ origin: ORIGIN });
 
       assert.strictEqual(status, 200);
       assert.strictEqual(body.length, expectedCapacitiesLength);
@@ -154,12 +142,6 @@ describe('GET quotes', function () {
       const currency = 'ETH';
       const period = 100;
       const contractAddress = '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B';
-      const smartCoverDetailsList = covers();
-      smartCoverDetailsList.forEach(cover => {
-        // eslint-disable-next-line no-param-reassign
-        cover.smartContractAdd = contractAddress;
-      });
-      await Cover.insertMany(smartCoverDetailsList);
 
       const { status, body } = await requestQuote(coverAmount, currency, period, contractAddress);
       assert.strictEqual(status, 200);
@@ -179,12 +161,6 @@ describe('GET quotes', function () {
       const period = 100;
       const contractAddress = '0x34CfAC646f301356fAa8B21e94227e3583Fe3F5F'; // Gnosis safe
       const secondContractAddress = '0x3d9819210A31b4961b30EF54bE2aeD79B9c9Cd3B';
-      const smartCoverDetailsList = covers();
-      smartCoverDetailsList.forEach(cover => {
-        // eslint-disable-next-line no-param-reassign
-        cover.smartContractAdd = contractAddress;
-      });
-      await Cover.insertMany(smartCoverDetailsList);
 
       const { status } = await requestQuote(coverAmount, currency, period, contractAddress);
       assert.strictEqual(status, 200);
@@ -205,12 +181,6 @@ describe('GET quotes', function () {
       const currency = 'DAI';
       const period = 100;
       const contractAddress = '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f'; // uniswap v2
-      const smartCoverDetailsList = covers();
-      smartCoverDetailsList.forEach(cover => {
-        // eslint-disable-next-line no-param-reassign
-        cover.smartContractAdd = contractAddress;
-      });
-      await Cover.insertMany(smartCoverDetailsList);
 
       const { status, body } = await requestQuote(coverAmount, currency, period, contractAddress);
       assert.strictEqual(status, 200);
