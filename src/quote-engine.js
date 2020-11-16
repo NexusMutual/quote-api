@@ -377,7 +377,7 @@ class QuoteEngine {
    */
   static calculateRisk (netStakedNxm) {
     const STAKED_HIGH_RISK_COST = Decimal(100);
-    const LOW_RISK_COST_LIMIT_NXM = Decimal(100000).mul('1e18');
+    const LOW_RISK_COST_LIMIT_NXM = Decimal(50000).mul('1e18');
     const PRICING_EXPONENT = Decimal(7);
     const STAKED_LOW_RISK_COST = Decimal(2);
     // uncappedRiskCost = stakedHighRiskCost * [1 - netStakedNXM/lowRiskCostLimit ^ (1/pricingExponent) ];
