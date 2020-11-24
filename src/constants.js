@@ -14,6 +14,8 @@ const DEPENDANT_CONTRACTS = {
 };
 
 const MCR_CAPACITY_FACTORS = {
+  // C.R.E.A.M.
+  '0x3d5bc3c8d13dcb8bf317092d84783c2697ae9258': Decimal(0.25)
 };
 
 const DAYS_PER_YEAR = Decimal('365.25');
