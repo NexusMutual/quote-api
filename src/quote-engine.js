@@ -494,7 +494,17 @@ class QuoteEngine {
     const unsignedQuote = { ...quoteData, contract: lowerCasedContractAddress };
     log.info(`Signing quote..`);
     const quotationAddress = this.nexusContractLoader.instance('QT').address;
-    const signature = QuoteEngine.signQuote(unsignedQuote, quotationAddress, this.privateKey);
+
+    let signature;
+    while (true) {
+      signature = QuoteEngine.signQuote(unsignedQuote, quotationAddress, this.privateKey);
+      if (signature.r.length !== 66 || signature.s.length !== 66) {
+        unsignedQuote.generatedAt = unsignedQuote.generatedAt + 1;
+        log.info(`Signature not the right length: ${JSON.stringify(signature)}. Using generatedAt + 1 = ${unsignedQuote.generatedAt}`);
+      } else {
+        break;
+      }
+    }
 
     return {
       ...unsignedQuote,

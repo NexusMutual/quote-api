@@ -10,6 +10,7 @@
     "decimal.js": "^10.2.0",
     "dotenv": "^8.2.0",
     "ethereumjs-abi": "^0.6.8",
+    "ethereumjs-util": "^7.0.7",
     "express": "^4.17.1",
     "express-http-context": "^1.2.4",
     "joi": "^17.1.1",
