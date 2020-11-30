@@ -496,13 +496,11 @@ class QuoteEngine {
     const quotationAddress = this.nexusContractLoader.instance('QT').address;
 
     const signature = QuoteEngine.signQuote(unsignedQuote, quotationAddress, this.privateKey);
-
     return {
       ...unsignedQuote,
       ...signature,
     };
   }
-
 
   /**
    * @param {string} rawContractAddress
