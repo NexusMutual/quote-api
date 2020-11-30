@@ -283,8 +283,8 @@ class QuoteEngine {
 
     return {
       v: sig.v,
-      r: '0x' + util.toUnsigned(util.fromSigned(sig.r)).toString('hex'),
-      s: '0x' + util.toUnsigned(util.fromSigned(sig.s)).toString('hex'),
+      r: '0x' + util.setLengthLeft(util.toUnsigned(util.fromSigned(sig.r)), 32).toString('hex'),
+      s: '0x' + util.setLengthLeft(util.toUnsigned(util.fromSigned(sig.s)), 32).toString('hex'),
     };
   }
 
@@ -495,22 +495,14 @@ class QuoteEngine {
     log.info(`Signing quote..`);
     const quotationAddress = this.nexusContractLoader.instance('QT').address;
 
-    let signature;
-    while (true) {
-      signature = QuoteEngine.signQuote(unsignedQuote, quotationAddress, this.privateKey);
-      if (signature.r.length !== 66 || signature.s.length !== 66) {
-        unsignedQuote.generatedAt = unsignedQuote.generatedAt + 1;
-        log.info(`Signature not the right length: ${JSON.stringify(signature)}. Using generatedAt + 1 = ${unsignedQuote.generatedAt}`);
-      } else {
-        break;
-      }
-    }
+    const signature = QuoteEngine.signQuote(unsignedQuote, quotationAddress, this.privateKey);
 
     return {
       ...unsignedQuote,
       ...signature,
     };
   }
+
 
   /**
    * @param {string} rawContractAddress
