@@ -105,6 +105,18 @@ describe('GET quotes', function () {
       assert.strictEqual(status, 200);
     });
 
+    it('responds with 200 for a custodian', async function () {
+      // Celsius custodian
+      const contractAddress = '0xc57D000000000000000000000000000000000001';
+
+      const { status, body } = await requestCapacity(contractAddress);
+      assert(Decimal(body.capacityETH).isInteger());
+      assert(Decimal(body.capacityDAI).isInteger());
+      assert(Decimal(body.netStakedNXM).isInteger());
+      assert.strictEqual(body.capacityLimit, 'STAKED_CAPACITY');
+      assert.strictEqual(status, 200);
+    });
+
     it('responds with 200 for a production contract with a defined MCR factor', async function () {
       const contractAddress = '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f';
 

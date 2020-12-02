@@ -108,6 +108,13 @@ module.exports = quoteEngine => {
       contractData,
     );
 
+    if (quote.error === 'Uncoverable') {
+      return res.status(409).send({
+        error: true,
+        message: 'Quote is uncoverable at this point in time. No capacity available.',
+      });
+    }
+
     res.send(prettyPrintResponse(quote));
   }));
 

@@ -8,7 +8,7 @@ const LegacyQuoteReason = {
   CAPACITY_LIMIT_EXCEEDED: 'capacityLimitExceed',
   OK: 'ok',
 };
-const quoteValidity = 300;
+const quoteValidity = 900;
 
 describe('calculateQuote()', function () {
   describe('respects input values and returns correct timestamps', function () {

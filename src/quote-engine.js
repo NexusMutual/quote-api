@@ -391,11 +391,15 @@ class QuoteEngine {
   /**
    * Gets capacity factor to multiply the capacity by.
    *
-   * @param {Date} contractDateAdded
+   * @param {{ dateAdded: string, type: string }}
    * @return {Decimal} capacity factor
    */
-  getCapacityFactor (contractDateAdded) {
-    return contractDateAdded.getTime() < this.capacityFactorEndDate.getTime() ? CAPACITY_FACTOR : Decimal(1);
+  getCapacityFactor ({ dateAdded, type }) {
+    const contractDateAdded = new Date(dateAdded);
+    if (type === 'custodian' || contractDateAdded.getTime() < this.capacityFactorEndDate.getTime()) {
+      return CAPACITY_FACTOR;
+    }
+    return Decimal(1);
   }
 
   /**
@@ -458,7 +462,7 @@ class QuoteEngine {
       this.getNetStakedNxm(lowerCasedContractAddress),
       this.getLastMcrEth(),
     ]);
-    const capacityFactor = this.getCapacityFactor(new Date(contractData.dateAdded));
+    const capacityFactor = this.getCapacityFactor(contractData);
     const mcrCapacityFactor = this.getMCRCapacityFactor(lowerCasedContractAddress);
     const params = {
       amount: amount.toFixed(),
@@ -492,6 +496,10 @@ class QuoteEngine {
     })}`);
 
     const unsignedQuote = { ...quoteData, contract: lowerCasedContractAddress };
+    if (unsignedQuote.error) {
+      return unsignedQuote;
+    }
+
     log.info(`Signing quote..`);
     const quotationAddress = this.nexusContractLoader.instance('QT').address;
 
@@ -504,7 +512,7 @@ class QuoteEngine {
 
   /**
    * @param {string} rawContractAddress
-   * @param {{ dateAdded: string, name: string }} contractData
+   * @param {{ dateAdded: string, name: string, type: string }} contractData
    * @return {Promise<{ capacityETH: Decimal, capacityDAI: Decimal, netStakedNXM: Decimal }>}
    */
   async getCapacity (rawContractAddress, contractData) {
@@ -523,7 +531,7 @@ class QuoteEngine {
     ]);
 
     log.info(`Detected active cover amounts: ${JSON.stringify(activeCoverAmounts)}.`);
-    const capacityFactor = this.getCapacityFactor(new Date(contractData.dateAdded));
+    const capacityFactor = this.getCapacityFactor(contractData);
     const mcrCapacityFactor = this.getMCRCapacityFactor(contractAddress);
     log.info(JSON.stringify({ netStakedNXM, minCapETH, nxmPrice, currencyRates, capacityFactor }));
     const { capacity: capacityETH, capacityLimit } = QuoteEngine.calculateCapacity(
