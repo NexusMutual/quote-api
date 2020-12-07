@@ -33,6 +33,8 @@ const CAPACITY_LIMIT = {
 
 const CURRENCIES = ['ETH', 'DAI'];
 
+const ETH = '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE';
+
 module.exports = {
   DAI_COVER_DENYLIST,
   DEPENDANT_CONTRACTS,
@@ -43,4 +45,5 @@ module.exports = {
   CAPACITY_FACTOR,
   CAPACITY_LIMIT,
   CURRENCIES,
+  ETH
 };
