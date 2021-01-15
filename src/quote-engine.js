@@ -6,7 +6,7 @@ const Joi = require('joi');
 const moment = require('moment');
 const NodeCache = require('node-cache');
 const utils = require('./utils');
-const { hex } = require('./utils');
+const { hex, getEnv } = require('./utils');
 const log = require('./log');
 const { getWhitelist } = require('./contract-whitelist');
 const {
@@ -536,8 +536,11 @@ class QuoteEngine {
     }
 
     log.info(`Signing quote..`);
-    const quotationAddress = this.nexusContractLoader.instance('QT').address;
 
+    const quotationAddress = getEnv('QUOTATION_ADDRESS_OVERRIDE', this.nexusContractLoader.instance('QT').address);
+    console.log({
+      quotationAddress
+    });
     const signature = QuoteEngine.signQuote(unsignedQuote, quotationAddress, this.privateKey);
     return {
       ...unsignedQuote,
