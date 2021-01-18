@@ -56,7 +56,7 @@ const TRUSTED_PROTOCOLS = [
   '0x34CfAC646f301356fAa8B21e94227e3583Fe3F5F', // Gnosis Safe,
   '0x12D66f87A04A9E220743712cE6d9bB1B5616B8Fc', // Tornado Cash,
   '0xc0a47dFe034B400B47bDaD5FecDa2621de6c4d95', // Uniswap v1
-];
+].map(a => a.toLowerCase());
 
 module.exports = {
   DAI_COVER_DENYLIST,

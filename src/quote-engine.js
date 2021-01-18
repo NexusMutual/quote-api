@@ -470,7 +470,7 @@ class QuoteEngine {
       this.getNetStakedNxm(lowerCasedContractAddress),
       this.getLastMcrEth(),
     ]);
-    const capacityFactor = this.getCapacityFactor({ ...contractData, contractAddress });
+    const capacityFactor = this.getCapacityFactor({ ...contractData, contractAddress: lowerCasedContractAddress });
     const mcrCapacityFactor = this.getMCRCapacityFactor(lowerCasedContractAddress);
     const params = {
       amount: amount.toFixed(),
@@ -539,7 +539,7 @@ class QuoteEngine {
     ]);
 
     log.info(`Detected active cover amounts: ${JSON.stringify(activeCoverAmounts)}.`);
-    const capacityFactor = this.getCapacityFactor({ ...contractData, contractAddress: rawContractAddress });
+    const capacityFactor = this.getCapacityFactor({ ...contractData, contractAddress });
     const mcrCapacityFactor = this.getMCRCapacityFactor(contractAddress);
     log.info(JSON.stringify({ netStakedNXM, minCapETH, nxmPrice, currencyRates, capacityFactor }));
     const { capacity: capacityETH, capacityLimit } = QuoteEngine.calculateCapacity(
