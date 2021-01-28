@@ -18,8 +18,6 @@ const MCR_CAPACITY_FACTORS = {
   '0x3d5bc3c8d13dcb8bf317092d84783c2697ae9258': Decimal(0.25),
   // SushiSwap
   '0xc2edad668740f1aa35e4d8f227fb8e17dca888cd': Decimal(0.5),
-  // BadgerDAO
-  '0x6354e79f21b56c11f48bcd7c451be456d7102a36': Decimal(0.5),
 };
 
 const DAYS_PER_YEAR = Decimal('365.25');
