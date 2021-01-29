@@ -15,12 +15,14 @@ async function initApp () {
   const MONGO_URL = getEnv('MONGO_URL', 'mainnet');
   const CAPACITY_FACTOR_END_DATE = getEnv('CAPACITY_FACTOR_END_DATE', 'mainnet');
   const QUOTE_SIGN_MIN_INTERVAL_SECONDS = parseInt(getEnv('QUOTE_SIGN_MIN_INTERVAL_SECONDS'));
+  const ENABLE_CAPACITY_RESERVATION = parseInt(getEnv('ENABLE_CAPACITY_RESERVATION', '0'));
 
   log.info(JSON.stringify({
     VERSION_DATA_URL,
     NETWORK,
     CAPACITY_FACTOR_END_DATE,
     QUOTE_SIGN_MIN_INTERVAL_SECONDS,
+    ENABLE_CAPACITY_RESERVATION,
   }));
 
   log.info(`Connecting to node at ${new URL(PROVIDER_URL).origin}..`);
@@ -35,11 +37,18 @@ async function initApp () {
   const nexusContractLoader = new NexusContractLoader(NETWORK, VERSION_DATA_URL, web3.eth.currentProvider);
   await nexusContractLoader.init();
 
+  const enableCapacityReservation = !isNaN(ENABLE_CAPACITY_RESERVATION) && ENABLE_CAPACITY_RESERVATION > 0;
+
+  log.info('Initializing quote engine..');
   const quoteEngine = new QuoteEngine(
-    nexusContractLoader, PRIVATE_KEY, web3, CAPACITY_FACTOR_END_DATE, QUOTE_SIGN_MIN_INTERVAL_SECONDS,
+    nexusContractLoader,
+    PRIVATE_KEY,
+    web3,
+    CAPACITY_FACTOR_END_DATE,
+    enableCapacityReservation,
   );
-  const app = routes(quoteEngine);
-  return app;
+
+  return routes(quoteEngine);
 }
 
 module.exports = {

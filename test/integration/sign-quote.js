@@ -48,6 +48,22 @@ describe('QuoteEngine.signQuote', function () {
     assert.equal(isValid, true);
   });
 
+  it('pads signatures with bad length', async function () {
+
+    // quotation address is the only variable data in this test so we
+    // hardcode it to generate a particular signature that is known to be short
+    const qtAddress = '0x285Ca3cd3Fc1D5eECCb984feb55Da26d36F5eEAD';
+    const data = { ...quotationData, generatedAt: 1595431355489 };
+    const signature = QuoteEngine.signQuote(data, qtAddress, authQuoteEnginePrivateKey);
+
+    const r = Buffer.from(signature.r.replace(/^0x/, ''), 'hex');
+
+    // make sure we got a short signature
+    assert((r.length === 31));
+
+    assert((signature.r.toString().length !== 66));
+  });
+
   it(`gets rejected if cover parameters don't match the signature`, async function () {
     const { qt } = this;
     const sig = QuoteEngine.signQuote(quotationData, qt.address, authQuoteEnginePrivateKey);

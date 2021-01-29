@@ -9,6 +9,8 @@ const utils = require('./utils');
 const { hex } = require('./utils');
 const log = require('./log');
 const { getWhitelist } = require('./contract-whitelist');
+const { Quote } = require('./models');
+
 const {
   DEPENDANT_CONTRACTS,
   MCR_CAPACITY_FACTORS,
@@ -30,9 +32,9 @@ class QuoteEngine {
    * @param {string} privateKey
    * @param {Web3} web3
    * @param {string} capacityFactorEndDate
-   * @param {number} quoteSignMinInterval
+   * @param {boolean} enableCapacityReservation
    */
-  constructor (nexusContractLoader, privateKey, web3, capacityFactorEndDate, quoteSignMinInterval) {
+  constructor (nexusContractLoader, privateKey, web3, capacityFactorEndDate, enableCapacityReservation) {
     this.nexusContractLoader = nexusContractLoader;
     this.privateKey = privateKey;
     this.web3 = web3;
@@ -40,18 +42,14 @@ class QuoteEngine {
 
     const format = 'MM/DD/YYYY';
     const endMoment = moment(capacityFactorEndDate, format, true);
+
     if (!endMoment.isValid()) {
       throw new Error(`Invalid capacityFactorEndDate: ${capacityFactorEndDate}. Use format: ${format}`);
     }
+
     this.capacityFactorEndDate = endMoment.toDate();
-
     this.capacitiesCache = new NodeCache({ stdTTL: 15, checkperiod: 60 });
-
-    if (!Number.isInteger(quoteSignMinInterval)) {
-      throw new Error(`Invalid quoteSignMinInterval: ${quoteSignMinInterval}`);
-    }
-    this.quoteSignMinInterval = quoteSignMinInterval * 1000;
-    this.lastSignatureTimes = {};
+    this.enableCapacityReservation = enableCapacityReservation;
   }
 
   /**
@@ -297,12 +295,9 @@ class QuoteEngine {
    * @param {String} currency Ex: "ETH" or "DAI"
    * @param {Decimal} nxmPrice Amount of wei for 1 NXM
    * @param {Decimal} netStakedNxm
-   * @param {Decimal} minCapETH
-   * @param {[{ contractAddress: string, sumAssured: Decimal, currency: string }]} activeCoverAmounts
+   * @param {Decimal} maxCapacity
    * @param {object} currencyRates
    * @param {Date} now
-   * @param {Decimal} capacityFactor
-   * @param {Decimal} mcrCapacityFactor
    *
    * @typedef {{
    *   error: string,
@@ -328,12 +323,9 @@ class QuoteEngine {
     currency,
     nxmPrice,
     netStakedNxm,
-    minCapETH,
-    activeCoverAmounts,
+    maxCapacity,
     currencyRates,
     now,
-    capacityFactor,
-    mcrCapacityFactor,
   ) {
     const generatedAt = now.getTime();
     const expiresAt = Math.ceil(generatedAt / 1000 + 900);
@@ -347,9 +339,6 @@ class QuoteEngine {
       };
     }
 
-    const { capacity: maxCapacity } = QuoteEngine.calculateCapacity(
-      netStakedNxm, nxmPrice, minCapETH, activeCoverAmounts, currencyRates, capacityFactor, mcrCapacityFactor,
-    );
     const requestedCoverAmountInWei = requestedCoverAmount.mul(coverCurrencyRate);
 
     // limit cover amount by maxCapacity
@@ -423,142 +412,179 @@ class QuoteEngine {
   }
 
   /**
-   * @param {string} contractAddress
-   * @param {string} coverAmount Requested cover amount (might differ from offered cover amount)
-   * @param {string} currency
-   * @param {string} period
-   * @param {{ dateAdded: string, name: string }} contractData
+   * @param {string} rawContractAddress
+   * @param {string} rawCoverAmount Requested cover amount (might differ from offered cover amount)
+   * @param {string} rawCurrency
+   * @param {string} rawPeriod
+   * @param {{ dateAdded: string, name: string, type: string }} contractData
    * @return {object}
    */
-  async getQuote (contractAddress, coverAmount, currency, period, contractData) {
-    const { error } = QuoteEngine.validateQuoteParameters(contractAddress, coverAmount, currency, period);
+  async getQuote (rawContractAddress, rawCoverAmount, rawCurrency, rawPeriod, contractData) {
+
+    const { error } = QuoteEngine.validateQuoteParameters(rawContractAddress, rawCoverAmount, rawCurrency, rawPeriod);
 
     if (error) {
       throw new Error(`Invalid parameters provided: ${error}`);
     }
-    const upperCasedCurrency = currency.toUpperCase();
-    const lowerCasedContractAddress = contractAddress.toLowerCase();
-    const parsedPeriod = parseInt(period);
 
-    const amount = Decimal(coverAmount);
+    const currency = rawCurrency.toUpperCase();
+    const contractAddress = rawContractAddress.toLowerCase();
+    const parsedPeriod = parseInt(rawPeriod);
+    const amount = new Decimal(rawCoverAmount);
     const now = new Date();
 
-    // take the most recent signature time from the set of all related contracts
-    const dependants = DEPENDANT_CONTRACTS[lowerCasedContractAddress] || [];
-    const all = [lowerCasedContractAddress];
-    all.push(...dependants);
-    const lastSignatureTime = Math.max(...[all.map(c => this.lastSignatureTimes[c])]) || 0;
-
-    const nowTimestamp = now.getTime();
-    const timePassedSinceLastSignature = nowTimestamp - lastSignatureTime;
-    log.info(`For ${lowerCasedContractAddress} timePassedSinceLastSignature: ${timePassedSinceLastSignature}`);
-    if (lastSignatureTime === 0 || timePassedSinceLastSignature > this.quoteSignMinInterval) {
-      log.info(`lastSignatureTimes[${lowerCasedContractAddress}] = ${nowTimestamp}`);
-      this.lastSignatureTimes[lowerCasedContractAddress] = nowTimestamp;
-    } else {
-      log.error(`Too many requests for ${lowerCasedContractAddress}`);
-      const e = Error('Too many requests');
-      e.status = 429;
-      throw e;
-    }
-
-    const activeCoverAmounts = await this.getActiveCoverAmounts(lowerCasedContractAddress);
+    const activeCoverAmounts = await this.getActiveCoverAmounts(contractAddress);
     log.info(`Detected active cover amounts: ${JSON.stringify(activeCoverAmounts)}.`);
 
-    const [currencyRates, nxmPrice, netStakedNxm, minCapETH] = await Promise.all([
+    const [currencyRates, nxmPrice, netStakedNxm] = await Promise.all([
       this.getCurrencyRates(),
       this.getTokenPrice(), // ETH amount for 1 unit of the currency
-      this.getNetStakedNxm(lowerCasedContractAddress),
-      this.getLastMcrEth(),
+      this.getNetStakedNxm(contractAddress),
     ]);
-    const capacityFactor = this.getCapacityFactor({ ...contractData, contractAddress: lowerCasedContractAddress });
-    const mcrCapacityFactor = this.getMCRCapacityFactor(lowerCasedContractAddress);
-    const params = {
-      amount: amount.toFixed(),
-      period: parsedPeriod,
-      currency: upperCasedCurrency,
-      currencyRate: currencyRates[upperCasedCurrency].toFixed(),
-      nxmPrice: nxmPrice.toFixed(),
-      netStakedNxm: netStakedNxm.toFixed(),
-      minCapETH: minCapETH.toFixed(),
-      now,
-      capacityFactor,
-      mcrCapacityFactor,
-    };
-    log.info(`Calculating quote with params ${JSON.stringify(params)}`);
+
+    // TODO: deduplicate getActiveCoverAmounts() call
+    const maxCapacity = await this.getCapacity(rawContractAddress, contractData, false);
     const quoteData = QuoteEngine.calculateQuote(
       amount,
       parsedPeriod,
-      upperCasedCurrency,
+      currency,
       nxmPrice,
       netStakedNxm,
-      minCapETH,
+      maxCapacity,
       activeCoverAmounts,
       currencyRates,
       now,
-      capacityFactor,
-      mcrCapacityFactor,
     );
-    log.info(`quoteData result: ${JSON.stringify({
-      ...quoteData,
-      params,
-    })}`);
 
-    const unsignedQuote = { ...quoteData, contract: lowerCasedContractAddress };
+    const unsignedQuote = { ...quoteData, contract: contractAddress };
+
     if (unsignedQuote.error) {
+      log.info(`Quote error: ${JSON.stringify(unsignedQuote)}`);
       return unsignedQuote;
     }
 
     log.info(`Signing quote..`);
     const quotationAddress = this.nexusContractLoader.instance('QT').address;
-
     const signature = QuoteEngine.signQuote(unsignedQuote, quotationAddress, this.privateKey);
-    return {
-      ...unsignedQuote,
-      ...signature,
-    };
+
+    const signedQuote = { ...unsignedQuote, ...signature };
+    log.info(`Signed quote: ${JSON.stringify(signedQuote)}`);
+
+    return signedQuote;
+  }
+
+  /**
+   * @param {string} contractAddress
+   * @param {{ dateAdded: string, name: string, type: string }} contractData
+   * @param currencyRates
+   * @param {{ dateAdded: string, name: string, type: string }} contractData
+   * @param {boolean} allowCached
+   * @return {{ capacityETH: Decimal, capacityLimit: Decimal, netStakedNXM: Decimal }}
+   */
+  async getOnchainCapacity (contractAddress, contractData, currencyRates, allowCached) {
+
+    const cachedCapacity = this.capacitiesCache.get(contractAddress);
+    const isCacheExpired = typeof cachedCapacity === 'undefined';
+
+    if (allowCached && !isCacheExpired) {
+      return cachedCapacity;
+    }
+
+    const activeCoverAmounts = await this.getActiveCoverAmounts(contractAddress);
+    log.info(`Detected active cover amounts: ${JSON.stringify(activeCoverAmounts)}.`);
+
+    const [netStakedNXM, minCapETH, nxmPrice] = await Promise.all([
+      this.getNetStakedNxm(contractAddress),
+      this.getLastMcrEth(),
+      this.getTokenPrice(),
+    ]);
+
+    const capacityFactor = this.getCapacityFactor({ ...contractData, contractAddress });
+    const mcrCapacityFactor = this.getMCRCapacityFactor(contractAddress);
+    log.info(JSON.stringify({ netStakedNXM, minCapETH, nxmPrice, currencyRates, capacityFactor }));
+
+    const { capacity: capacityETH, capacityLimit } = QuoteEngine.calculateCapacity(
+      netStakedNXM,
+      nxmPrice,
+      minCapETH,
+      activeCoverAmounts,
+      currencyRates,
+      capacityFactor,
+      mcrCapacityFactor,
+    );
+    log.info(`Computed capacity for ${contractData.name}(${contractAddress}): ${capacityETH.toFixed()}`);
+
+    // cache capacities
+    this.capacitiesCache.set(contractAddress, { capacityETH, capacityLimit, netStakedNXM });
+
+    return { capacityETH, capacityLimit, netStakedNXM };
+  }
+
+  /**
+   * Returns currently reserved capacity in ether wei
+   * @param {string} contract
+   * @param currencyRates
+   * @return Decimal
+   */
+  async getReservedCapacity (contract, currencyRates) {
+
+    if (!this.enableCapacityReservation) {
+      return new Decimal(0);
+    }
+
+    const now = Date.now() / 1000;
+    const contracts = [contract, ...DEPENDANT_CONTRACTS[contract]].map(c => c.toLowerCase());
+    const activeQuotes = await Quote.find({ expiresAt: { $gte: now }, contract: { $in: contracts } });
+
+    log.info(`Found ${activeQuotes.length} active quotes`);
+
+    const calculateReserved = (quotes, currency) => quotes
+      .filter(quote => quote.currency === currency)
+      .reduce((total, quote) => total.add(quote.amount), new Decimal(0));
+
+    const reservedDAI = calculateReserved(activeQuotes, 'DAI').mul('1e18');
+    const reservedETH = calculateReserved(activeQuotes, 'ETH').mul('1e18');
+
+    const daiRate = currencyRates['DAI'];
+    const reservedTotal = reservedDAI.mul(daiRate).div('1e18').add(reservedETH);
+
+    log.info(`Reserved in active quotes: ${reservedETH.toFixed(0)} ETH and ${reservedDAI.toFixed(0)} DAI`);
+
+    return reservedTotal;
   }
 
   /**
    * @param {string} rawContractAddress
    * @param {{ dateAdded: string, name: string, type: string }} contractData
-   * @return {Promise<{ capacityETH: Decimal, capacityDAI: Decimal, netStakedNXM: Decimal }>}
+   * @param {boolean} allowCached
+   * @return {{ capacityETH: Decimal, capacityDAI: Decimal, netStakedNXM: Decimal }}
    */
-  async getCapacity (rawContractAddress, contractData) {
+  async getCapacity (rawContractAddress, contractData, allowCached) {
+
     const contractAddress = rawContractAddress.toLowerCase();
-    const cachedCapacity = this.capacitiesCache.get(contractAddress);
-    if (cachedCapacity) {
-      return cachedCapacity;
-    }
-
-    const activeCoverAmounts = await this.getActiveCoverAmounts(contractAddress);
-    const [netStakedNXM, minCapETH, nxmPrice, currencyRates] = await Promise.all([
-      this.getNetStakedNxm(contractAddress),
-      this.getLastMcrEth(),
-      this.getTokenPrice(),
-      this.getCurrencyRates(),
-    ]);
-
-    log.info(`Detected active cover amounts: ${JSON.stringify(activeCoverAmounts)}.`);
-    const capacityFactor = this.getCapacityFactor({ ...contractData, contractAddress });
-    const mcrCapacityFactor = this.getMCRCapacityFactor(contractAddress);
-    log.info(JSON.stringify({ netStakedNXM, minCapETH, nxmPrice, currencyRates, capacityFactor }));
-    const { capacity: capacityETH, capacityLimit } = QuoteEngine.calculateCapacity(
-      netStakedNXM, nxmPrice, minCapETH, activeCoverAmounts, currencyRates, capacityFactor, mcrCapacityFactor,
-    );
-    log.info(`Computed capacity for ${contractData.name}(${contractAddress}): ${capacityETH.toFixed()}`);
-
+    const currencyRates = await this.getCurrencyRates();
     const daiRate = currencyRates['DAI'];
-    const capacityDAI = capacityETH.div(daiRate).mul('1e18');
 
-    const capacity = {
+    const reservedCapacity = await this.getReservedCapacity(contractAddress, currencyRates);
+    const { capacityETH, capacityLimit, netStakedNXM } = await this.getOnchainCapacity(
+      contractAddress,
+      contractData,
+      currencyRates,
+      allowCached,
+    );
+
+    const capacityDAI = capacityETH.div(daiRate).mul('1e18');
+    const availableCapacityETH = utils.max(capacityETH.sub(reservedCapacity), 0);
+    const availableCapacityDAI = availableCapacityETH.div(daiRate).mul('1e18');
+
+    return {
       capacityETH,
       capacityDAI,
+      availableCapacityETH,
+      availableCapacityDAI,
       netStakedNXM,
       capacityLimit,
     };
-    this.capacitiesCache.set(contractAddress, capacity);
-    return capacity;
   }
 
   /**
@@ -566,14 +592,11 @@ class QuoteEngine {
    */
   async getCapacities () {
     const whitelist = await getWhitelist();
-
-    const capacities = await Promise.all(Object.keys(whitelist).map(async contractAddress => {
+    return Promise.all(Object.keys(whitelist).map(async contractAddress => {
       const contractData = whitelist[contractAddress];
-      const capacity = await this.getCapacity(contractAddress, contractData);
+      const capacity = await this.getCapacity(contractAddress, contractData, true);
       return { ...capacity, contractAddress };
     }));
-
-    return capacities;
   }
 
   static validateQuoteParameters (contractAddress, coverAmount, currency, period) {
