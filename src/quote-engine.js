@@ -18,7 +18,9 @@ const {
   CAPACITY_FACTOR,
   CAPACITY_LIMIT,
   CURRENCIES,
-  ETH
+  ETH,
+  TRUSTED_PROTOCOLS,
+  TRUSTED_PROTOCOL_CAPACITY_FACTOR,
 } = require('./constants');
 
 class QuoteEngine {
@@ -392,14 +394,20 @@ class QuoteEngine {
   /**
    * Gets capacity factor to multiply the capacity by.
    *
-   * @param {{ dateAdded: string, type: string }}
+   * @param {{ dateAdded: string, type: string, contractAddress: string }}
    * @return {Decimal} capacity factor
    */
-  getCapacityFactor ({ dateAdded, type }) {
+  getCapacityFactor ({ dateAdded, type, contractAddress }) {
     const contractDateAdded = new Date(dateAdded);
+
+    if (TRUSTED_PROTOCOLS.includes(contractAddress)) {
+      return TRUSTED_PROTOCOL_CAPACITY_FACTOR;
+    }
+
     if (type === 'custodian' || contractDateAdded.getTime() < this.capacityFactorEndDate.getTime()) {
       return CAPACITY_FACTOR;
     }
+
     return Decimal(1);
   }
 
@@ -463,7 +471,7 @@ class QuoteEngine {
       this.getNetStakedNxm(lowerCasedContractAddress),
       this.getLastMcrEth(),
     ]);
-    const capacityFactor = this.getCapacityFactor(contractData);
+    const capacityFactor = this.getCapacityFactor({ ...contractData, contractAddress: lowerCasedContractAddress });
     const mcrCapacityFactor = this.getMCRCapacityFactor(lowerCasedContractAddress);
     const params = {
       amount: amount.toFixed(),
@@ -532,7 +540,7 @@ class QuoteEngine {
     ]);
 
     log.info(`Detected active cover amounts: ${JSON.stringify(activeCoverAmounts)}.`);
-    const capacityFactor = this.getCapacityFactor(contractData);
+    const capacityFactor = this.getCapacityFactor({ ...contractData, contractAddress });
     const mcrCapacityFactor = this.getMCRCapacityFactor(contractAddress);
     log.info(JSON.stringify({ netStakedNXM, minCapETH, nxmPrice, currencyRates, capacityFactor }));
     const { capacity: capacityETH, capacityLimit } = QuoteEngine.calculateCapacity(

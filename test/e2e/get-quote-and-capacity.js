@@ -94,8 +94,19 @@ describe('GET quotes', function () {
   });
 
   describe('GET /v1/contracts/:contractAddress/capacity', async function () {
-    it('responds with 200 for a production contract', async function () {
+    it('responds with 200 for a normal production contract', async function () {
       const contractAddress = '0xB27F1DB0a7e473304A5a06E54bdf035F671400C0';
+
+      const { status, body } = await requestCapacity(contractAddress);
+      assert(Decimal(body.capacityETH).isInteger());
+      assert(Decimal(body.capacityDAI).isInteger());
+      assert(Decimal(body.netStakedNXM).isInteger());
+      assert.strictEqual(body.capacityLimit, 'STAKED_CAPACITY');
+      assert.strictEqual(status, 200);
+    });
+
+    it('responds with 200 for a trusted protocol production contract', async function () {
+      const contractAddress = '0xc0a47dFe034B400B47bDaD5FecDa2621de6c4d95';
 
       const { status, body } = await requestCapacity(contractAddress);
       assert(Decimal(body.capacityETH).isInteger());
