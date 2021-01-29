@@ -18,6 +18,7 @@ const {
   CAPACITY_FACTOR,
   CAPACITY_LIMIT,
   CURRENCIES,
+  ETH,
   TRUSTED_PROTOCOLS,
   TRUSTED_PROTOCOL_CAPACITY_FACTOR,
 } = require('./constants');
@@ -162,8 +163,8 @@ class QuoteEngine {
    * @return {Decimal}
    */
   async getTokenPrice () {
-    const tokenFunctions = this.nexusContractLoader.instance('TF');
-    const price = await tokenFunctions.getTokenPrice(hex('ETH'));
+    const pool = this.nexusContractLoader.instance('P1');
+    const price = await pool.getTokenPrice(ETH);
     return Decimal(price.toString());
   }
 
