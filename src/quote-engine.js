@@ -115,10 +115,9 @@ class QuoteEngine {
    * @param {string} contractAddress
    * @return {Decimal} Net Staked NXM amount as decimal.js instance
    */
-  async getNetStakedNxm (contractAddress) {
+  async getTotalUnprocessedUnstake (contractAddress) {
 
-    const [stakedNxmBN, firstUnprocessedUnstake, unstakeRequestEvents] = await Promise.all([
-      this.pooledStaking.contractStake(contractAddress),
+    const [firstUnprocessedUnstake, unstakeRequestEvents] = await Promise.all([
       this.getFirstUnprocessedUnstake(),
       this.getUnstakeRequests(contractAddress),
     ]);
@@ -143,9 +142,7 @@ class QuoteEngine {
       .reduce((a, b) => a.add(b), new BN('0'));
 
     const totalUnprocessedUnstake = Decimal(totalUnprocessedUnstakeBN.toString());
-    const stakedNxm = Decimal(stakedNxmBN.toString());
-
-    return stakedNxm.sub(totalUnprocessedUnstake.div(2));
+    return totalUnprocessedUnstake;
   }
 
   async getFirstUnprocessedUnstake () {
@@ -388,6 +385,32 @@ class QuoteEngine {
   }
 
   /**
+   * Calculates the net staked NXM as the difference between staked and total unprocessed unstakes.
+   *
+   * @param {Decimal} stakedNxm
+   * @param {Decimal} totalUnprocessedUnstake
+   * @return {Decimal} netStakedNxm
+   */
+  static calculateNetStakedNxm (stakedNxm, totalUnprocessedUnstake) {
+    const netStakedNxm = stakedNxm.sub(totalUnprocessedUnstake);
+    return netStakedNxm;
+  }
+
+  /**
+   * Calculates the  quote adjusted net staked NXM as the difference between staked and
+   *  1/2 of total unprocessed unstakes.
+   * This adjustment artificially creates more capacity than what is actually available.
+   *
+   * @param {Decimal} stakedNxm
+   * @param {Decimal} totalUnprocessedUnstake
+   * @return {Decimal} netStakedNxm
+   */
+  static calculateQuoteAdjustedNetStakedNxm (stakedNxm, totalUnprocessedUnstake) {
+    const netStakedNxm = stakedNxm.sub(totalUnprocessedUnstake.div(2));
+    return netStakedNxm;
+  }
+
+  /**
    * Calculates risk percentage as a value between 1 and 100
    *
    * @param {Decimal} netStakedNxm
@@ -480,12 +503,16 @@ class QuoteEngine {
     const activeCoverAmounts = await this.getActiveCoverAmounts(lowerCasedContractAddress);
     log.info(`Detected active cover amounts: ${JSON.stringify(activeCoverAmounts)}.`);
 
-    const [currencyRates, nxmPrice, netStakedNxm, minCapETH] = await Promise.all([
+    const [currencyRates, nxmPrice, totalUnprocessedUnstake, minCapETH, contractStake] = await Promise.all([
       this.getCurrencyRates(),
       this.getTokenPrice(), // ETH amount for 1 unit of the currency
-      this.getNetStakedNxm(lowerCasedContractAddress),
+      this.getTotalUnprocessedUnstake(lowerCasedContractAddress),
       this.getLastMcrEth(),
+      this.pooledStaking.contractStake(lowerCasedContractAddress)
     ]);
+
+    const netStakedNxm = QuoteEngine.calculateQuoteAdjustedNetStakedNxm(toDecimal(contractStake), totalUnprocessedUnstake);
+
     const capacityFactor = this.getCapacityFactor({ ...contractData, contractAddress: lowerCasedContractAddress });
     const mcrCapacityFactor = this.getMCRCapacityFactor(lowerCasedContractAddress);
     const params = {
@@ -547,12 +574,15 @@ class QuoteEngine {
     }
 
     const activeCoverAmounts = await this.getActiveCoverAmounts(contractAddress);
-    const [netStakedNXM, minCapETH, nxmPrice, currencyRates] = await Promise.all([
-      this.getNetStakedNxm(contractAddress),
+    const [totalUnprocessedUnstake, minCapETH, nxmPrice, currencyRates, contractStake] = await Promise.all([
+      this.getTotalUnprocessedUnstake(contractAddress),
       this.getLastMcrEth(),
       this.getTokenPrice(),
       this.getCurrencyRates(),
+      this.pooledStaking.contractStake(contractAddress)
     ]);
+
+    const netStakedNXM = QuoteEngine.calculateNetStakedNxm(toDecimal(contractStake), totalUnprocessedUnstake);
 
     log.info(`Detected active cover amounts: ${JSON.stringify(activeCoverAmounts)}.`);
     const capacityFactor = this.getCapacityFactor({ ...contractData, contractAddress });
@@ -634,6 +664,10 @@ class QuoteEngine {
 
 function decimalToBN (value) {
   return new BN(value.floor().toString());
+}
+
+function toDecimal (value) {
+  return new Decimal(value.toString());
 }
 
 module.exports = QuoteEngine;
