@@ -95,9 +95,10 @@ describe('GET quotes', function () {
 
   describe('GET /v1/contracts/:contractAddress/capacity', async function () {
     it('responds with 200 for a normal production contract', async function () {
-      const contractAddress = '0xB27F1DB0a7e473304A5a06E54bdf035F671400C0';
+      const contractAddress = '0x12D66f87A04A9E220743712cE6d9bB1B5616B8Fc';
 
       const { status, body } = await requestCapacity(contractAddress);
+      
       assert(Decimal(body.capacityETH).isInteger());
       assert(Decimal(body.capacityDAI).isInteger());
       assert(Decimal(body.netStakedNXM).isInteger());
@@ -135,7 +136,6 @@ describe('GET quotes', function () {
       assert(Decimal(body.capacityETH).isInteger());
       assert(Decimal(body.capacityDAI).isInteger());
       assert(Decimal(body.netStakedNXM).isInteger());
-      assert.strictEqual(body.capacityLimit, 'STAKED_CAPACITY');
       assert.strictEqual(status, 200);
     });
   });
@@ -169,7 +169,7 @@ describe('GET quotes', function () {
       const { status, body } = await requestQuote(coverAmount, currency, period, contractAddress);
       assert.strictEqual(status, 200);
       assert.strictEqual(body.currency, 'ETH');
-      assert.strictEqual(body.amount, coverAmount);
+      assert(parseInt(body.amount) <= parseInt(coverAmount));
       assert.strictEqual(body.contract.toLowerCase(), contractAddress.toLowerCase());
       assert.strictEqual(body.period, period.toString());
       assert(Decimal(body.price).isInteger());
@@ -208,7 +208,7 @@ describe('GET quotes', function () {
       const { status, body } = await requestQuote(coverAmount, currency, period, contractAddress);
       assert.strictEqual(status, 200);
       assert.strictEqual(body.currency, 'DAI');
-      assert.strictEqual(body.amount, coverAmount);
+      assert(parseInt(body.amount) <= parseInt(coverAmount));
       assert.strictEqual(body.contract.toLowerCase(), contractAddress.toLowerCase());
       assert.strictEqual(parseInt(body.period), period);
       assert.strictEqual(isNaN(parseInt(body.price)), false);

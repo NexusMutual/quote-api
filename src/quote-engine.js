@@ -23,6 +23,8 @@ const {
   TRUSTED_PROTOCOL_CAPACITY_FACTOR,
 } = require('./constants');
 
+const DAY_IN_SECONDS = 24 * 60 * 60;
+
 class QuoteEngine {
 
   /**
@@ -115,11 +117,25 @@ class QuoteEngine {
    */
   async getNetStakedNxm (contractAddress) {
 
-    const [stakedNxmBN, firstUnprocessedUnstake, unstakeRequests] = await Promise.all([
+    const [stakedNxmBN, firstUnprocessedUnstake, unstakeRequestEvents] = await Promise.all([
       this.pooledStaking.contractStake(contractAddress),
       this.getFirstUnprocessedUnstake(),
       this.getUnstakeRequests(contractAddress),
     ]);
+
+    /*
+      unstake requests were migrated to 30 days after transaction
+      https://etherscan.io/tx/0xabf17599450bf3689f16588b6b473036a65275564655aa768af315312a1b7792
+      Therefore, need to substract 90 - 30 = 60 days from each unstakeAt field in events pre-dating that tx.
+    */
+    const unstakeRequests = unstakeRequestEvents.map(e => {
+      if (e.blockNumber <= 11678825) {
+        const args = e.args;
+        args.unstakeAt = args.unstakeAt.subn(DAY_IN_SECONDS * 60);
+      }
+
+      return e.args;
+    });
 
     const totalUnprocessedUnstakeBN = unstakeRequests
       .filter(e => e.unstakeAt.toNumber() >= firstUnprocessedUnstake.unstakeAt.toNumber())
@@ -146,15 +162,14 @@ class QuoteEngine {
   async getUnstakeRequests (contractAddress) {
 
     const ASSUMED_BLOCK_TIME = 15;
-    const UNSTAKE_PROCESSING_DAYS = 90;
+    const UNSTAKE_PROCESSING_DAYS = 30;
     const BUFFER_DAYS = 30;
-    const DAY_IN_SECONDS = 24 * 60 * 60;
     const blocksBack = (UNSTAKE_PROCESSING_DAYS + BUFFER_DAYS) * DAY_IN_SECONDS / ASSUMED_BLOCK_TIME;
     const block = await this.web3.eth.getBlock('latest');
     const fromBlock = block.number - blocksBack;
     const events = await this.pooledStaking.getPastEvents('UnstakeRequested', { fromBlock, filter: { contractAddress } });
 
-    return events.map(e => e.args);
+    return events;
   }
 
   /**
