@@ -110,7 +110,7 @@ class QuoteEngine {
   }
 
   /**
-   * Fetches total pending unstakes for a contract
+   * Fetches total unprocessed unstakes for a contract
    *
    * @param {string} contractAddress
    * @return {Decimal} Net Staked NXM amount as decimal.js instance
