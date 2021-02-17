@@ -217,24 +217,6 @@ describe('GET quotes', function () {
       assert(Decimal(body.generatedAt).isInteger());
     });
 
-    it.only('responds with a valid quote for a production contract for DAI for mstable', async function () {
-      const coverAmount = '130000';
-      const currency = 'DAI';
-      const period = 170;
-      const contractAddress = '0xAFcE80b19A8cE13DEc0739a1aaB7A028d6845Eb3'; // mstable
-
-      const { status, body } = await requestQuote(coverAmount, currency, period, contractAddress);
-      assert.strictEqual(status, 200);
-      assert.strictEqual(body.currency, 'DAI');
-      assert(parseInt(body.amount) <= parseInt(coverAmount));
-      assert.strictEqual(body.contract.toLowerCase(), contractAddress.toLowerCase());
-      assert.strictEqual(parseInt(body.period), period);
-      assert.strictEqual(isNaN(parseInt(body.price)), false);
-      assert.strictEqual(isNaN(parseInt(body.priceInNXM)), false);
-      assert(Decimal(body.expiresAt).isInteger());
-      assert(Decimal(body.generatedAt).isInteger());
-    });
-
     it('responds with 400 for a non-whitelisted contract', async function () {
       const coverAmount = '1000';
       const currency = 'ETH';

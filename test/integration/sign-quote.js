@@ -59,7 +59,7 @@ describe('QuoteEngine.signQuote', function () {
     assert.equal(isValid, true);
   });
 
-  it.only('signs a valid DAI quote for Quotation.sol contract', async function () {
+  it('signs a valid DAI quote for Quotation.sol contract', async function () {
     const { qt } = this;
     const quotationData = daiQuotationData;
 
@@ -82,9 +82,8 @@ describe('QuoteEngine.signQuote', function () {
     assert.equal(isValid, true);
   });
 
-  it.only('signs a valid DAI quote for Quotation.sol contract', async function () {
+  it('signs a valid DAI quote with high price (over 1e21) for Quotation.sol contract', async function () {
     const { qt } = this;
-
     const quotationData = { ...daiQuotationData, price: Decimal('1455453183062400175000') };
 
     const sig = QuoteEngine.signQuote(quotationData, qt.address, authQuoteEnginePrivateKey);
