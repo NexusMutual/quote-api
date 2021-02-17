@@ -30,7 +30,7 @@ describe('QuoteEngine.signQuote', function () {
   const daiQuotationData = {
     currency: 'DAI',
     period: 170,
-    amount: Decimal('1700000'),
+    amount: Decimal('17000000'),
     price: Decimal('13346578668603537188'),
     priceInNXM: Decimal('451561311853817774240'),
     expiresAt: 1595434956,
@@ -79,6 +79,89 @@ describe('QuoteEngine.signQuote', function () {
       sig.s,
     );
     assert.equal(isValid, true);
+  });
+
+  it.only('signs a valid DAI quote for Quotation.sol contract', async function () {
+    const { qt } = this;
+
+    const quotationData = {
+      currency: 'DAI',
+      period: 60,
+      amount: Decimal('146321'),
+      price: Decimal('1455453183062400175000'),
+      priceInNXM: Decimal('26511770517963136083'),
+      expiresAt: 1612262274,
+      generatedAt: 1612261373682,
+      contract: '0xfa5047c9c78b8877af97bdcb85db743fd7313d4a',
+    };
+
+    const sig = QuoteEngine.signQuote(quotationData, qt.address, authQuoteEnginePrivateKey);
+    const coverDetails = new Array(5);
+    coverDetails[0] = quotationData.amount.toFixed();
+    coverDetails[1] = quotationData.price.toFixed();
+    coverDetails[2] = quotationData.priceInNXM.toFixed();
+    coverDetails[3] = quotationData.expiresAt;
+    coverDetails[4] = quotationData.generatedAt;
+    const isValid = await qt.verifySign(
+      coverDetails,
+      quotationData.period,
+      hex(quotationData.currency),
+      quotationData.contract,
+      sig.v,
+      sig.r,
+      sig.s,
+    );
+    assert.equal(isValid, true);
+  });
+
+  it('signs a valid DAI quote for Quotation.sol contract', async function () {
+    const { qt } = this;
+    
+    for (let i = 0; i < 1; i++) {
+      console.log(` sig ${i}`);
+      // const quotationData = {
+      //   ...daiQuotationData,
+      //   period: daiQuotationData.period + i % 100,
+      //   amount: daiQuotationData.amount.add(i),
+      //   price: daiQuotationData.price.add(i),
+      //   createdAt: daiQuotationData.createdAt + i,
+      //   generatedAt: daiQuotationData.generatedAt + i,
+      // };
+
+      const quotationData = {
+        currency: 'DAI',
+        period: 60,
+        amount: Decimal('146321'),
+        price: Decimal('1455453183062400175000'),
+        priceInNXM: Decimal('26511770517963136083'),
+        expiresAt: 1612262274,
+        generatedAt: 1612261373682,
+        contract: '0xfa5047c9c78b8877af97bdcb85db743fd7313d4a',
+      };
+      const sig = QuoteEngine.signQuote(quotationData, qt.address, authQuoteEnginePrivateKey);
+      const coverDetails = new Array(5);
+      coverDetails[0] = quotationData.amount.toFixed();
+      coverDetails[1] = quotationData.price.toFixed();
+      coverDetails[2] = quotationData.priceInNXM.toFixed();
+      coverDetails[3] = quotationData.expiresAt;
+      coverDetails[4] = quotationData.generatedAt;
+
+      console.log({
+        v: sig.v,
+        r: sig.r,
+        s: sig.s
+      })
+      const isValid = await qt.verifySign(
+        coverDetails,
+        quotationData.period,
+        hex(quotationData.currency),
+        quotationData.contract,
+        sig.v,
+        sig.r,
+        sig.s,
+      );
+      assert.equal(isValid, true);
+    }
   });
 
   it(`gets rejected if cover parameters don't match the signature`, async function () {

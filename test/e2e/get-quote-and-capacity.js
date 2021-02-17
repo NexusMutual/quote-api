@@ -98,7 +98,7 @@ describe('GET quotes', function () {
       const contractAddress = '0x12D66f87A04A9E220743712cE6d9bB1B5616B8Fc';
 
       const { status, body } = await requestCapacity(contractAddress);
-      
+
       assert(Decimal(body.capacityETH).isInteger());
       assert(Decimal(body.capacityDAI).isInteger());
       assert(Decimal(body.netStakedNXM).isInteger());
@@ -204,6 +204,24 @@ describe('GET quotes', function () {
       const currency = 'DAI';
       const period = 100;
       const contractAddress = '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f'; // uniswap v2
+
+      const { status, body } = await requestQuote(coverAmount, currency, period, contractAddress);
+      assert.strictEqual(status, 200);
+      assert.strictEqual(body.currency, 'DAI');
+      assert(parseInt(body.amount) <= parseInt(coverAmount));
+      assert.strictEqual(body.contract.toLowerCase(), contractAddress.toLowerCase());
+      assert.strictEqual(parseInt(body.period), period);
+      assert.strictEqual(isNaN(parseInt(body.price)), false);
+      assert.strictEqual(isNaN(parseInt(body.priceInNXM)), false);
+      assert(Decimal(body.expiresAt).isInteger());
+      assert(Decimal(body.generatedAt).isInteger());
+    });
+
+    it.only('responds with a valid quote for a production contract for DAI for mstable', async function () {
+      const coverAmount = '130000';
+      const currency = 'DAI';
+      const period = 170;
+      const contractAddress = '0xAFcE80b19A8cE13DEc0739a1aaB7A028d6845Eb3'; // mstable
 
       const { status, body } = await requestQuote(coverAmount, currency, period, contractAddress);
       assert.strictEqual(status, 200);
