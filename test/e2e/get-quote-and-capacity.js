@@ -98,7 +98,7 @@ describe('GET quotes', function () {
       const contractAddress = '0x12D66f87A04A9E220743712cE6d9bB1B5616B8Fc';
 
       const { status, body } = await requestCapacity(contractAddress);
-      
+
       assert(Decimal(body.capacityETH).isInteger());
       assert(Decimal(body.capacityDAI).isInteger());
       assert(Decimal(body.netStakedNXM).isInteger());

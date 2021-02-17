@@ -80,7 +80,7 @@ class QuoteEngine {
 
     const maxStakedCapacity = netStakedNxmEthValue.mul(capacityFactor);
     const maxCapacity = utils.min(maxStakedCapacity, maxMCRCapacity);
-    const capacityLimit = maxCapacity.toString() === maxStakedCapacity.toString()
+    const capacityLimit = maxCapacity.toFixed() === maxStakedCapacity.toFixed()
       ? CAPACITY_LIMIT.STAKED_CAPACITY : CAPACITY_LIMIT.MCR_CAPACITY;
     const availableCapacity = utils.max(maxCapacity.sub(activeCoversSumEthValue), Decimal(0));
 
@@ -141,7 +141,7 @@ class QuoteEngine {
       .map(e => e.amount)
       .reduce((a, b) => a.add(b), new BN('0'));
 
-    const totalUnprocessedUnstake = Decimal(totalUnprocessedUnstakeBN.toString());
+    const totalUnprocessedUnstake = toDecimal(totalUnprocessedUnstakeBN);
     return totalUnprocessedUnstake;
   }
 
@@ -177,7 +177,7 @@ class QuoteEngine {
   async getTokenPrice () {
     const pool = this.nexusContractLoader.instance('P1');
     const price = await pool.getTokenPrice(ETH);
-    return Decimal(price.toString());
+    return toDecimal(price);
   }
 
   /**
@@ -188,7 +188,7 @@ class QuoteEngine {
   async getLastMcrEth () {
     const poolData = this.nexusContractLoader.instance('PD');
     const mcrEth = await poolData.getLastMCREther();
-    return Decimal(mcrEth.toString());
+    return toDecimal(mcrEth);
   }
 
   /**
@@ -198,7 +198,7 @@ class QuoteEngine {
   async getDaiRate () {
     const chainlinkAggregator = this.nexusContractLoader.instance('CHAINLINK-DAI-ETH');
     const daiRate = await chainlinkAggregator.latestAnswer();
-    return Decimal(daiRate.toString());
+    return toDecimal(daiRate);
   }
 
   /**
@@ -221,7 +221,7 @@ class QuoteEngine {
         CURRENCIES.map(async (currency) => {
           const sumAssured = await qd.getTotalSumAssuredSC(contractAddress, hex(currency));
           return {
-            sumAssured: Decimal(sumAssured.toString()),
+            sumAssured: toDecimal(sumAssured),
             contractAddress,
             currency,
           };
@@ -663,7 +663,7 @@ class QuoteEngine {
 }
 
 function decimalToBN (value) {
-  return new BN(value.floor().toString());
+  return new BN(value.floor().toFixed());
 }
 
 function toDecimal (value) {
