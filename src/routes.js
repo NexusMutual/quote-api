@@ -100,6 +100,14 @@ module.exports = quoteEngine => {
       });
     }
 
+		if (contractData.type === 'token' && contractData.underlyingToken !== currency) {
+			const message = `Cover for contract ${contractAddress} only allows ${contractData.underlyingToken} as a currency`;
+			return res.status(400).send({
+				error: true,
+				message,
+			});
+		}
+
     const quote = await quoteEngine.getQuote(
       contractAddress,
       coverAmount,
