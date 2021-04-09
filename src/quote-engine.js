@@ -383,19 +383,7 @@ class QuoteEngine {
       generatedAt,
     };
   }
-
-  /**
-   * Calculates the net staked NXM as the difference between staked and total unprocessed unstakes.
-   *
-   * @param {Decimal} stakedNxm
-   * @param {Decimal} totalUnprocessedUnstake
-   * @return {Decimal} netStakedNxm
-   */
-  static calculateNetStakedNxm (stakedNxm, totalUnprocessedUnstake) {
-    const netStakedNxm = stakedNxm.sub(totalUnprocessedUnstake);
-    return netStakedNxm;
-  }
-
+  
   /**
    * Calculates the  quote adjusted net staked NXM as the difference between staked and
    *  1/2 of total unprocessed unstakes.
@@ -582,7 +570,7 @@ class QuoteEngine {
       this.pooledStaking.contractStake(contractAddress)
     ]);
 
-    const netStakedNXM = QuoteEngine.calculateNetStakedNxm(toDecimal(contractStake), totalUnprocessedUnstake);
+    const netStakedNXM = QuoteEngine.calculateQuoteAdjustedNetStakedNxm(toDecimal(contractStake), totalUnprocessedUnstake);
 
     log.info(`Detected active cover amounts: ${JSON.stringify(activeCoverAmounts)}.`);
     const capacityFactor = this.getCapacityFactor({ ...contractData, contractAddress });
