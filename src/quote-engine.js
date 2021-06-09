@@ -383,7 +383,7 @@ class QuoteEngine {
       generatedAt,
     };
   }
-  
+
   /**
    * Calculates the  quote adjusted net staked NXM as the difference between staked and
    *  1/2 of total unprocessed unstakes.
@@ -430,11 +430,7 @@ class QuoteEngine {
       return TRUSTED_PROTOCOL_CAPACITY_FACTOR;
     }
 
-    if (type === 'custodian' || contractDateAdded.getTime() < this.capacityFactorEndDate.getTime()) {
-      return CAPACITY_FACTOR;
-    }
-
-    return Decimal(1);
+    return CAPACITY_FACTOR;
   }
 
   /**
