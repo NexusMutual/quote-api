@@ -5,7 +5,7 @@
   "main": "src/index.js",
   "dependencies": {
     "@openzeppelin/contract-loader": "^0.6.1",
-    "@truffle/contract": "^4.2.30",
+    "@truffle/contract": "^4.3.19",
     "bn.js": "^4.11.8",
     "decimal.js": "^10.2.0",
     "dotenv": "^8.2.0",
@@ -16,7 +16,7 @@
     "joi": "^17.1.1",
     "moment": "^2.27.0",
     "mongodb": "^3.5.2",
-    "mongoose": "^5.8.9",
+    "mongoose": "^5.12.13",
     "node-cache": "^5.1.2",
     "node-fetch": "^2.6.1",
     "uuid": "^8.2.0",
