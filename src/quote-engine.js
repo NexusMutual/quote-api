@@ -186,8 +186,8 @@ class QuoteEngine {
    * @return {Decimal}
    */
   async getLastMcrEth () {
-    const poolData = this.nexusContractLoader.instance('PD');
-    const mcrEth = await poolData.getLastMCREther();
+    const poolData = this.nexusContractLoader.instance('MC');
+    const mcrEth = await poolData.getMCR();
     return toDecimal(mcrEth);
   }
 
