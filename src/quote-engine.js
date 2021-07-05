@@ -394,7 +394,13 @@ class QuoteEngine {
    * @return {Decimal} netStakedNxm
    */
   static calculateQuoteAdjustedNetStakedNxm (stakedNxm, totalUnprocessedUnstake) {
-    const netStakedNxm = stakedNxm.sub(totalUnprocessedUnstake.div(2));
+    let netStakedNxm = stakedNxm.sub(totalUnprocessedUnstake.div(2));
+
+    const netStakedNXMOverride = toDecimal(getEnv('NET_STAKED_NXM_OVERRIDE', '0'));
+    if (netStakedNXMOverride.gt('0') && netStakedNxm.lt(netStakedNXMOverride)) {
+      // create artificial capacity for testing environment
+      netStakedNxm = netStakedNXMOverride;
+    }
     return netStakedNxm;
   }
 

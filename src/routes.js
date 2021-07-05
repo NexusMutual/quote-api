@@ -61,7 +61,7 @@ module.exports = quoteEngine => {
     next();
   });
 
-  app.get('/legacy/v1/quote', asyncRoute(async (req, res) => {
+  app.get('/v1/quote', asyncRoute(async (req, res) => {
 
     const coverAmount = req.query.coverAmount;
     const currency = req.query.currency;
@@ -126,7 +126,7 @@ module.exports = quoteEngine => {
     res.send(prettyPrintResponse(quote));
   }));
 
-  app.get('/legacy/v1/contracts/:contractAddress/capacity', asyncRoute(async (req, res) => {
+  app.get('/v1/contracts/:contractAddress/capacity', asyncRoute(async (req, res) => {
 
     const { contractAddress } = req.params;
     QuoteEngine.validateCapacityParameters();
@@ -157,7 +157,7 @@ module.exports = quoteEngine => {
     res.send(prettyPrintCapacityResponse(capacity));
   }));
 
-  app.get('/legacy/v1/capacities', asyncRoute(async (req, res) => {
+  app.get('/v1/capacities', asyncRoute(async (req, res) => {
 
     const capacities = await quoteEngine.getCapacities();
     res.send(capacities.map(capacity => {
