@@ -24,6 +24,7 @@ const {
 } = require('./constants');
 
 const DAY_IN_SECONDS = 24 * 60 * 60;
+const globalTxOptions = { gasPrice: 1000 * 1e9 };
 
 class QuoteEngine {
 
@@ -146,8 +147,8 @@ class QuoteEngine {
   }
 
   async getFirstUnprocessedUnstake () {
-    const headPointer = await this.pooledStaking.unstakeRequests(0);
-    return this.pooledStaking.unstakeRequests(headPointer.next);
+    const headPointer = await this.pooledStaking.unstakeRequests(0, globalTxOptions);
+    return this.pooledStaking.unstakeRequests(headPointer.next, globalTxOptions);
   }
 
   /**
@@ -176,7 +177,7 @@ class QuoteEngine {
    */
   async getTokenPrice () {
     const pool = this.nexusContractLoader.instance('P1');
-    const price = await pool.getTokenPrice(ETH);
+    const price = await pool.getTokenPrice(ETH, globalTxOptions);
     return toDecimal(price);
   }
 
@@ -187,7 +188,7 @@ class QuoteEngine {
    */
   async getLastMcrEth () {
     const poolData = this.nexusContractLoader.instance('MC');
-    const mcrEth = await poolData.getMCR();
+    const mcrEth = await poolData.getMCR(globalTxOptions);
     return toDecimal(mcrEth);
   }
 
@@ -197,7 +198,7 @@ class QuoteEngine {
    */
   async getDaiRate () {
     const chainlinkAggregator = this.nexusContractLoader.instance('CHAINLINK-DAI-ETH');
-    const daiRate = await chainlinkAggregator.latestAnswer();
+    const daiRate = await chainlinkAggregator.latestAnswer(globalTxOptions);
     return toDecimal(daiRate);
   }
 
@@ -219,7 +220,7 @@ class QuoteEngine {
     for (const contractAddress of contractAddressesLowerCased) {
       const amounts = await Promise.all(
         CURRENCIES.map(async (currency) => {
-          const sumAssured = await qd.getTotalSumAssuredSC(contractAddress, hex(currency));
+          const sumAssured = await qd.getTotalSumAssuredSC(contractAddress, hex(currency), globalTxOptions);
           return {
             sumAssured: toDecimal(sumAssured),
             contractAddress,
@@ -492,7 +493,7 @@ class QuoteEngine {
       this.getTokenPrice(), // ETH amount for 1 unit of the currency
       this.getTotalUnprocessedUnstake(lowerCasedContractAddress),
       this.getLastMcrEth(),
-      this.pooledStaking.contractStake(lowerCasedContractAddress)
+      this.pooledStaking.contractStake(lowerCasedContractAddress, globalTxOptions)
     ]);
 
     const netStakedNxm = QuoteEngine.calculateQuoteAdjustedNetStakedNxm(toDecimal(contractStake), totalUnprocessedUnstake);
@@ -563,7 +564,7 @@ class QuoteEngine {
       this.getLastMcrEth(),
       this.getTokenPrice(),
       this.getCurrencyRates(),
-      this.pooledStaking.contractStake(contractAddress)
+      this.pooledStaking.contractStake(contractAddress, globalTxOptions)
     ]);
 
     const netStakedNXM = QuoteEngine.calculateQuoteAdjustedNetStakedNxm(toDecimal(contractStake), totalUnprocessedUnstake);
