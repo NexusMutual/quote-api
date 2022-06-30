@@ -315,6 +315,7 @@ class QuoteEngine {
    * @param {Date} now
    * @param {Decimal} capacityFactor
    * @param {Decimal} mcrCapacityFactor
+   * @param {number} fixedAnnualPrice
    *
    * @typedef {{
    *   error: string,
@@ -346,6 +347,7 @@ class QuoteEngine {
     now,
     capacityFactor,
     mcrCapacityFactor,
+    fixedAnnualPrice,
   ) {
     const generatedAt = now.getTime();
     const expiresAt = Math.ceil(generatedAt / 1000 + 3600);
@@ -368,7 +370,14 @@ class QuoteEngine {
     const finalCoverAmountInWei = utils.min(maxCapacity, requestedCoverAmountInWei);
 
     const risk = this.calculateRisk(netStakedNxm);
-    const quotePriceInWei = QuoteEngine.calculatePrice(finalCoverAmountInWei, risk, COVER_PRICE_SURPLUS_MARGIN, period);
+
+    let quotePriceInWei;
+    if (fixedAnnualPrice) {
+      quotePriceInWei = finalCoverAmountInWei.mul(fixedAnnualPrice).div(10000).mul(period).div(365);
+    } else {
+      quotePriceInWei = QuoteEngine.calculatePrice(finalCoverAmountInWei, risk, COVER_PRICE_SURPLUS_MARGIN, period);
+    }
+
     const quotePriceInCoverCurrencyWei = quotePriceInWei.div(coverCurrencyRate).mul('1e18').floor();
     const quotePriceInNxmWei = quotePriceInWei.div(nxmPrice).mul('1e18').floor();
     const finalCoverInCoverCurrency = finalCoverAmountInWei.div(coverCurrencyRate).floor();
@@ -512,6 +521,10 @@ class QuoteEngine {
       mcrCapacityFactor,
     };
     log.info(`Calculating quote with params ${JSON.stringify(params)}`);
+    const fixedAnnualPrice =
+      contractAddress === '0x0000000000000000000000000000000000000025' && 210 || // Stakewise operated
+      contractAddress === '0x0000000000000000000000000000000000000026' && 230 || // Stakewise 3rd party
+      0;
     const quoteData = QuoteEngine.calculateQuote(
       amount,
       parsedPeriod,
@@ -524,6 +537,7 @@ class QuoteEngine {
       now,
       capacityFactor,
       mcrCapacityFactor,
+      fixedAnnualPrice,
     );
     log.info(`quoteData result: ${JSON.stringify({
       ...quoteData,
