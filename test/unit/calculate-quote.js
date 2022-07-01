@@ -1,6 +1,6 @@
 const assert = require('assert');
 const Decimal = require('decimal.js');
-const {to2Decimals} = require('./testing-utils');
+const { to2Decimals } = require('./testing-utils');
 const QuoteEngine = require('../../src/quote-engine');
 
 const LegacyQuoteReason = {
@@ -72,12 +72,12 @@ describe('calculateQuote()', function () {
     const capacityFactor = Decimal('1');
     const mcrCapacityFactor = Decimal('1');
 
-    function assertETHAndNXMPrices(
-      amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered, fixedAnnualPrice = 0
+    function assertETHAndNXMPrices (
+      amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered, fixedAnnualPrice = 0,
     ) {
 
       const quoteData = QuoteEngine.calculateQuote(
-        amount, period, currency, nxmPrice, stakedNxm, minCapETH, activeCovers, currencyRates, now, capacityFactor, mcrCapacityFactor, fixedAnnualPrice
+        amount, period, currency, nxmPrice, stakedNxm, minCapETH, activeCovers, currencyRates, now, capacityFactor, mcrCapacityFactor, fixedAnnualPrice,
       );
       assert.strictEqual(
         to2Decimals(quoteData.price),
@@ -114,7 +114,7 @@ describe('calculateQuote()', function () {
         const expectedPriceInETH = Decimal('50').mul('1e18');
         const expectedPriceInNXM = Decimal('2912.5').mul('1e18');
         assertETHAndNXMPrices(
-          amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered, fixedAnnualPrice
+          amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered, fixedAnnualPrice,
         );
       }
     });
@@ -140,7 +140,7 @@ describe('calculateQuote()', function () {
         const expectedPriceInETH = Decimal('2.52').mul('1e18');
         const expectedPriceInNXM = Decimal('146.72').mul('1e18');
         assertETHAndNXMPrices(
-          amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered, fixedAnnualPrice
+          amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered, fixedAnnualPrice,
         );
       }
     });
@@ -166,7 +166,7 @@ describe('calculateQuote()', function () {
         const expectedPriceInETH = Decimal('56.7').mul('1e18');
         const expectedPriceInNXM = Decimal('3302.77').mul('1e18');
         assertETHAndNXMPrices(
-          amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered, fixedAnnualPrice
+          amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered, fixedAnnualPrice,
         );
       }
     });
@@ -192,8 +192,8 @@ describe('calculateQuote()', function () {
       const expectedPriceInNXM = Decimal('1514.5').mul('1e18');
       const expectedCoverAmountOffered = amount;
       const activeCovers = [
-        {sumAssured: Decimal('500'), currency: 'ETH'},
-        {sumAssured: Decimal('500').mul(ethDAIRate), currency: 'DAI'},
+        { sumAssured: Decimal('500'), currency: 'ETH' },
+        { sumAssured: Decimal('500').mul(ethDAIRate), currency: 'DAI' },
       ];
       assertETHAndNXMPrices(
         amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered,
@@ -217,12 +217,12 @@ describe('calculateQuote()', function () {
     const capacityFactor = Decimal('1');
     const mcrCapacityFactor = Decimal('1');
 
-    function assertDAIAndNXMPrices(
-      amount, period, stakedNxm, expectedPriceInDAI, expectedPriceInNXM, expectedCoverAmountOffered, fixedAnnualPrice = 0
+    function assertDAIAndNXMPrices (
+      amount, period, stakedNxm, expectedPriceInDAI, expectedPriceInNXM, expectedCoverAmountOffered, fixedAnnualPrice = 0,
     ) {
 
       const quoteData = QuoteEngine.calculateQuote(
-        amount, period, currency, nxmPrice, stakedNxm, minCapETH, activeCovers, currencyRates, now, capacityFactor, mcrCapacityFactor, fixedAnnualPrice
+        amount, period, currency, nxmPrice, stakedNxm, minCapETH, activeCovers, currencyRates, now, capacityFactor, mcrCapacityFactor, fixedAnnualPrice,
       );
       assert.strictEqual(
         to2Decimals(quoteData.price),
@@ -258,7 +258,7 @@ describe('calculateQuote()', function () {
         const expectedPriceInDAI = Decimal('13211.1').mul('1e18');
         const expectedPriceInNXM = Decimal('3302.77').mul('1e18');
         assertDAIAndNXMPrices(
-          amount, period, stakedNxm, expectedPriceInDAI, expectedPriceInNXM, expectedCoverAmountOffered, fixedAnnualPrice
+          amount, period, stakedNxm, expectedPriceInDAI, expectedPriceInNXM, expectedCoverAmountOffered, fixedAnnualPrice,
         );
       }
     });
@@ -283,7 +283,7 @@ describe('calculateQuote()', function () {
         const expectedPriceInDAI = Decimal('2000.00').mul('1e18');
         const expectedPriceInNXM = Decimal('500').mul('1e18');
         assertDAIAndNXMPrices(
-          amount, period, stakedNxm, expectedPriceInDAI, expectedPriceInNXM, expectedCoverAmountOffered, fixedAnnualPrice
+          amount, period, stakedNxm, expectedPriceInDAI, expectedPriceInNXM, expectedCoverAmountOffered, fixedAnnualPrice,
         );
       }
     });
@@ -308,7 +308,7 @@ describe('calculateQuote()', function () {
         const expectedPriceInDAI = Decimal('1095.14').mul('1e18');
         const expectedPriceInNXM = Decimal('273.79').mul('1e18');
         assertDAIAndNXMPrices(
-          amount, period, stakedNxm, expectedPriceInDAI, expectedPriceInNXM, expectedCoverAmountOffered, fixedAnnualPrice
+          amount, period, stakedNxm, expectedPriceInDAI, expectedPriceInNXM, expectedCoverAmountOffered, fixedAnnualPrice,
         );
       }
     });
