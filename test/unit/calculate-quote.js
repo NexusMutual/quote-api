@@ -73,11 +73,11 @@ describe('calculateQuote()', function () {
     const mcrCapacityFactor = Decimal('1');
 
     function assertETHAndNXMPrices (
-      amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered
+      amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered, fixedAnnualPrice = 0,
     ) {
 
       const quoteData = QuoteEngine.calculateQuote(
-        amount, period, currency, nxmPrice, stakedNxm, minCapETH, activeCovers, currencyRates, now, capacityFactor, mcrCapacityFactor,
+        amount, period, currency, nxmPrice, stakedNxm, minCapETH, activeCovers, currencyRates, now, capacityFactor, mcrCapacityFactor, fixedAnnualPrice,
       );
       assert.strictEqual(
         to2Decimals(quoteData.price),
@@ -97,39 +97,78 @@ describe('calculateQuote()', function () {
       const amount = Decimal('1000');
       const period = 365.25;
       const stakedNxm = Decimal(120000).mul('1e18');
-      const expectedPriceInETH = Decimal('26').mul('1e18');
-      const expectedPriceInNXM = Decimal('1514.5').mul('1e18');
       const expectedCoverAmountOffered = amount;
       const activeCovers = [];
-      assertETHAndNXMPrices(
-        amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered, LegacyQuoteReason.OK,
-      );
+
+      {
+        const expectedPriceInETH = Decimal('26').mul('1e18');
+        const expectedPriceInNXM = Decimal('1514.5').mul('1e18');
+        assertETHAndNXMPrices(
+          amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered,
+        );
+      }
+
+      {
+        // Fixed price
+        const fixedAnnualPrice = 500; // 5%
+        const expectedPriceInETH = Decimal('50').mul('1e18');
+        const expectedPriceInNXM = Decimal('2912.5').mul('1e18');
+        assertETHAndNXMPrices(
+          amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered, fixedAnnualPrice,
+        );
+      }
     });
 
     it('returns the cover price in ETH and NXM for 230 cover and no current active covers', function () {
       const amount = Decimal('230');
       const period = 100;
       const stakedNxm = Decimal(240000).mul('1e18');
-      const expectedPriceInETH = Decimal('1.64').mul('1e18');
-      const expectedPriceInNXM = Decimal('95.37').mul('1e18');
       const expectedCoverAmountOffered = amount;
       const activeCovers = [];
-      assertETHAndNXMPrices(
-        amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered, LegacyQuoteReason.OK,
-      );
+
+      {
+        const expectedPriceInETH = Decimal('1.64').mul('1e18');
+        const expectedPriceInNXM = Decimal('95.37').mul('1e18');
+        assertETHAndNXMPrices(
+          amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered,
+        );
+      }
+
+      {
+        // Fixed price
+        const fixedAnnualPrice = 400; // 4%
+        const expectedPriceInETH = Decimal('2.52').mul('1e18');
+        const expectedPriceInNXM = Decimal('146.72').mul('1e18');
+        assertETHAndNXMPrices(
+          amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered, fixedAnnualPrice,
+        );
+      }
     });
 
     it('returns the cover price in ETH and NXM for 5000 cover exceeding global capacity', function () {
       const amount = Decimal('5000');
       const period = 365.25;
       const stakedNxm = Decimal(220000).mul('1e18');
-      const expectedPriceInETH = Decimal('70.2').mul('1e18');
-      const expectedPriceInNXM = Decimal('4089.15').mul('1e18');
       const expectedCoverAmountOffered = Decimal('2700');
       const activeCovers = [];
-      assertETHAndNXMPrices(
-        amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered, LegacyQuoteReason.CAPACITY_LIMIT_EXCEEDED,
-      );
+
+      {
+        const expectedPriceInETH = Decimal('70.2').mul('1e18');
+        const expectedPriceInNXM = Decimal('4089.15').mul('1e18');
+        assertETHAndNXMPrices(
+          amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered,
+        );
+      }
+
+      {
+        // Fixed price
+        const fixedAnnualPrice = 210; // 2.1%
+        const expectedPriceInETH = Decimal('56.7').mul('1e18');
+        const expectedPriceInNXM = Decimal('3302.77').mul('1e18');
+        assertETHAndNXMPrices(
+          amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered, fixedAnnualPrice,
+        );
+      }
     });
 
     it(`returns 'uncoverable' for 0 stake`, function () {
@@ -157,7 +196,7 @@ describe('calculateQuote()', function () {
         { sumAssured: Decimal('500').mul(ethDAIRate), currency: 'DAI' },
       ];
       assertETHAndNXMPrices(
-        amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered, LegacyQuoteReason.OK,
+        amount, period, stakedNxm, activeCovers, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered,
       );
     });
   });
@@ -178,16 +217,16 @@ describe('calculateQuote()', function () {
     const capacityFactor = Decimal('1');
     const mcrCapacityFactor = Decimal('1');
 
-    function assertETHAndNXMPrices (
-      amount, period, stakedNxm, expectedPriceInETH, expectedPriceInNXM, expectedCoverAmountOffered,
+    function assertDAIAndNXMPrices (
+      amount, period, stakedNxm, expectedPriceInDAI, expectedPriceInNXM, expectedCoverAmountOffered, fixedAnnualPrice = 0,
     ) {
 
       const quoteData = QuoteEngine.calculateQuote(
-        amount, period, currency, nxmPrice, stakedNxm, minCapETH, activeCovers, currencyRates, now, capacityFactor, mcrCapacityFactor,
+        amount, period, currency, nxmPrice, stakedNxm, minCapETH, activeCovers, currencyRates, now, capacityFactor, mcrCapacityFactor, fixedAnnualPrice,
       );
       assert.strictEqual(
         to2Decimals(quoteData.price),
-        to2Decimals(expectedPriceInETH),
+        to2Decimals(expectedPriceInDAI),
       );
       assert.strictEqual(
         to2Decimals(quoteData.priceInNXM),
@@ -203,37 +242,77 @@ describe('calculateQuote()', function () {
       const amount = Decimal('800000');
       const period = 365.25;
       const stakedNxm = Decimal('800000').mul('1e18');
-      const expectedPriceInDAI = Decimal('16356.6').mul('1e18');
-      const expectedPriceInNXM = Decimal('4089.15').mul('1e18');
       const expectedCoverAmountOffered = Decimal('629100');
-      assertETHAndNXMPrices(
-        amount, period, stakedNxm, expectedPriceInDAI, expectedPriceInNXM, expectedCoverAmountOffered, LegacyQuoteReason.CAPACITY_LIMIT_EXCEEDED,
-      );
+
+      {
+        const expectedPriceInDAI = Decimal('16356.6').mul('1e18');
+        const expectedPriceInNXM = Decimal('4089.15').mul('1e18');
+        assertDAIAndNXMPrices(
+          amount, period, stakedNxm, expectedPriceInDAI, expectedPriceInNXM, expectedCoverAmountOffered,
+        );
+      }
+
+      {
+        // Fixed price
+        const fixedAnnualPrice = 210; // 2.1%
+        const expectedPriceInDAI = Decimal('13211.1').mul('1e18');
+        const expectedPriceInNXM = Decimal('3302.77').mul('1e18');
+        assertDAIAndNXMPrices(
+          amount, period, stakedNxm, expectedPriceInDAI, expectedPriceInNXM, expectedCoverAmountOffered, fixedAnnualPrice,
+        );
+      }
     });
 
     it('returns the cover price in DAI and NXM for 50000 cover', function () {
       const amount = Decimal('50000');
       const period = 365.25;
       const stakedNxm = Decimal('20000').mul('1e18');
-      const expectedPriceInDAI = Decimal('7975.07').mul('1e18');
-      const expectedPriceInNXM = Decimal('1993.77').mul('1e18');
       const expectedCoverAmountOffered = amount;
-      assertETHAndNXMPrices(
-        amount, period, stakedNxm, expectedPriceInDAI, expectedPriceInNXM, expectedCoverAmountOffered, LegacyQuoteReason.OK,
-      );
+
+      {
+        const expectedPriceInDAI = Decimal('7975.07').mul('1e18');
+        const expectedPriceInNXM = Decimal('1993.77').mul('1e18');
+        assertDAIAndNXMPrices(
+          amount, period, stakedNxm, expectedPriceInDAI, expectedPriceInNXM, expectedCoverAmountOffered,
+        );
+      }
+
+      {
+        // Fixed price
+        const fixedAnnualPrice = 400; // 4%
+        const expectedPriceInDAI = Decimal('2000.00').mul('1e18');
+        const expectedPriceInNXM = Decimal('500').mul('1e18');
+        assertDAIAndNXMPrices(
+          amount, period, stakedNxm, expectedPriceInDAI, expectedPriceInNXM, expectedCoverAmountOffered, fixedAnnualPrice,
+        );
+      }
     });
 
     it('returns the cover price in DAI and NXM for 150000 cover exceeding staking capacity limit', function () {
       const amount = Decimal('150000');
       const period = 100;
       const stakedNxm = Decimal('20000').mul('1e18');
-      const expectedPriceInDAI = Decimal('3493.53').mul('1e18');
-      const expectedPriceInNXM = Decimal('873.38').mul('1e18');
       const expectedCoverAmountOffered = Decimal('80000');
-      assertETHAndNXMPrices(
-        amount, period, stakedNxm, expectedPriceInDAI, expectedPriceInNXM, expectedCoverAmountOffered, LegacyQuoteReason.CAPACITY_LIMIT_EXCEEDED,
-      );
+
+      {
+        const expectedPriceInDAI = Decimal('3493.53').mul('1e18');
+        const expectedPriceInNXM = Decimal('873.38').mul('1e18');
+        assertDAIAndNXMPrices(
+          amount, period, stakedNxm, expectedPriceInDAI, expectedPriceInNXM, expectedCoverAmountOffered,
+        );
+      }
+
+      {
+        // Fixed price
+        const fixedAnnualPrice = 500; // 5%
+        const expectedPriceInDAI = Decimal('1095.14').mul('1e18');
+        const expectedPriceInNXM = Decimal('273.79').mul('1e18');
+        assertDAIAndNXMPrices(
+          amount, period, stakedNxm, expectedPriceInDAI, expectedPriceInNXM, expectedCoverAmountOffered, fixedAnnualPrice,
+        );
+      }
     });
+
   });
 
 });
