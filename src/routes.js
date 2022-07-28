@@ -170,7 +170,7 @@ module.exports = quoteEngine => {
 
 async function isOriginAllowed (origin) {
 
-  if (/\.nexusmutual\.io$/.test(origin)) {
+  if (/\.nexusmutual\.io$/.test(origin) || /\.frontend-react\.pages\.dev$/.test(origin)) {
     return true;
   }
   const storedApiKey = await WhitelistedOrigin.findOne({ origin });
