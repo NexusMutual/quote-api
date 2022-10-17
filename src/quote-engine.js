@@ -524,6 +524,7 @@ class QuoteEngine {
     const fixedAnnualPrice =
       contractAddress === '0x0000000000000000000000000000000000000025' && 210 || // Stakewise operated
       contractAddress === '0x0000000000000000000000000000000000000026' && 230 || // Stakewise 3rd party
+      contractAddress === '0x0000000000000000000000000000000000000029' && 200 || // Sherlock
       0;
     const quoteData = QuoteEngine.calculateQuote(
       amount,
