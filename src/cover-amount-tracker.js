@@ -1,62 +1,90 @@
 const fetch = require("node-fetch");
 const BN = require('bn.js');
 
-const START_ID = 'x'; // oldest claimable cover id
+const START_ID = '6820'; // oldest claimable cover id
 
 const CURRENCIES_ADDRESSES = {
     ETH: '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE',
     DAI: '0x6B175474E89094C44Da98b954EedeAC495271d0F'
 };
 
-class coverAmountTracker {
+const CoverStatus = {
+    ClaimAccepted: 1
+}
 
+const BATCH_SIZE = 1000;
 
+function createBatches (a, batchSize) {
+    const batches = [];
+    let currentBatch = [];
+    for (let i = 0; i < a.length; i++) {
+        if (currentBatch.length === batchSize) {
+            batches.push(currentBatch);
+            currentBatch = [a[i]];
+        } else {
+            currentBatch.push(a[i]);
+        }
+    }
+    if (currentBatch.length > 0) {
+        batches.push(currentBatch);
+    }
+    return batches;
+}
+
+class CoverAmountTracker {
 
     constructor (nexusContractLoader, web3) {
         this.nexusContractLoader = nexusContractLoader;
         this.web3 = web3;
-        this.coverData = {};
+        this.coverData = [];
     }
 
     async initialize() {
         this.lastCoverBlock = (await this.web3.eth.getBlock('latest')).number;
-        this.coverData = this.fetchAllActiveCovers();
+        this.lastCheckedCoverId = START_ID - 1;
+        this.lastClaimPayoutBlockNumber = 0;
+        const lastCoverBlock = 0;
+        await this.fetchAllCovers();
+
+        console.log({
+            coverData: this.coverData[0]
+        });
+        //
+        // setInterval(() => this.fetchNewCovers(), 300);
+        //
+        // setInterval(() => this.fetchPayoutEvents(), 300);
+
     }
 
-    async fetchAllActiveCovers () {
-        const url = 'https://nexustracker.io/all_covers';
-        const covers = await fetch(url, { headers: { 'Content-Type': 'application/json' } }).then(x => x.json());
-        console.log({
-            covers
-        });
-        const now = new Date().getTime();
-        const active = covers.filter(c => new Date(c.end_time).getTime() > now);
-        console.log({
-            activeCount: active.length
-        })
-        const activeCoverIds = active.map(c => c.cover_id);
+    async fetchAllCovers () {
+
+        console.log(`Fetching all new covers starting at cover id: ${this.lastCheckedCoverId}`);
+        const quotationData = this.nexusContractLoader.instance('QD');
+        const lastCoverId = (await quotationData.getCoverLength()).toNumber() - 1;
+
+        const activeCoverIds = [];
+        for (let j = this.lastCheckedCoverId; j <= lastCoverId; j++) {
+            activeCoverIds.push(j);
+            break;
+        }
+
+        console.log(`Fetching ${activeCoverIds.length} covers.`);
 
         const coverData = [];
-        for (const batch of createBatches(activeCoverIds, 50)) {
+        for (const batch of createBatches(activeCoverIds, BATCH_SIZE)) {
+            console.log(`Fetching batch of covers with ids ${batch[0]} - ${batch[batch.length - 1]}`);
             const coversInBatch = await Promise.all(batch.map(async id => {
                 const coverData = await this.fetchCover(id);
                 return coverData;
             }));
             coverData.push(coversInBatch);
         }
-        return coverData;
+        this.lastCheckedCoverId = lastCoverId;
+        this.coverData.push(...coverData);
+        console.log({
+            coverData: this.coverData[0],
+        })
     }
-
-    // data store
-    // mapping contract address => { eth: m, dai: n }
-    const amounts = {};
-    // array of { id, contract, currency: ETH|DAI, amount: n, expiration: d, claimed: true|false, processed: true|false }
-    const covers = {};
-
-    const lastCoverId = START_ID - 1;
-    const lastClaimPayoutBlockNumber = 0;
-
-    const lastCoverBlock = 0;
 
     async fetchCover (id) {
         const gateway = this.nexusContractLoader.instance('GW');
@@ -67,54 +95,42 @@ class coverAmountTracker {
         return { ...coverData, ...coverInfo };
     }
 
-    async fetchNewCovers {
-        const coverDetailsEvents = await this.quotationData.getPastEvents('CoverDetailsEvent', { fromBlock: lastCoverBlock });
-        for (const event of coverDetailsEvents) {
-            const newCoverData = await this.fetchCover(event.cid);
-            this.coverData.push(newCoverData);
-        }
-        this.lastCoverBlock = (await this.web3.eth.getBlock('latest')).number;
-    }
-
-    const fetchPayoutEvents = async lastBlock => {
-        const fromBlock = lastClaimPayoutBlockNumber + 1;
-        // get events in batches of 1000 blocks
-        // for each payout
-        //   - get claim id
-        //   - get cover id
-        //   - set covers[coverId].claimed = true
-        //   - if not covers[coverId].processed
-        //      - reduce total cover amount
-        //      - set covers[coverId].processed = true
-        // lastClaimPayoutBlockNumber = lastBlockNumber
-    }
-
-    // // initialization:
-    // await fetchNewCovers();
-    // setInterval(300, fetchNewCovers);
-    //
-    // await fetchPayoutEvents();
-    // setInterval(300, fetchPayoutEvents);
-    //
-    // setInterval(60, expireCovers);
+    // async fetchNewCovers () {
+    //     const coverDetailsEvents = await this.quotationData.getPastEvents('CoverDetailsEvent', { fromBlock: lastCoverBlock });
+    //     for (const event of coverDetailsEvents) {
+    //         const newCoverData = await this.fetchCover(event.cid);
+    //         this.coverData.push(newCoverData);
+    //     }
+    //     this.lastCoverBlock = (await this.web3.eth.getBlock('latest')).number;
+    // }
 
     getActiveCoverAmount (contract, currency) {
 
-        const currencyAddress = CURRENCIES_ADDRESSES;
+        const currencyAddress = CURRENCIES_ADDRESSES[currency];
+
+        const now = new Date().getTime();
         const contractCovers = this.coverData.filter(
-            c => c.contractAddress === contract && c.coverAsset === currencyAddress
+            c => c.contractAddress === contract
+                && c.coverAsset === currencyAddress
+                && c.validUntil.toNumber() > now
         );
-        contractCovers
+        return this.computeActiveCoverAmount(contractCovers);
     }
 
     computeActiveCoverAmount(covers) {
         let activeCoverSum = new BN(0);
 
         for (const cover of covers) {
-
+            if (cover.status.toNumber() === CoverStatus.ClaimAccepted && cover.requestedPayoutAmount.gtn(0)) {
+                activeCoverSum = activeCoverSum.add(cover.sumAssured).sub(cover.requestedPayoutAmount);
+            } else {
+                // not claimed and not expired
+                activeCoverSum = activeCoverSum.add(cover.sumAssured);
+            }
         }
+        return activeCoverSum;
     }
 
 };
 
-module.exports = coverAmountTracker;
+module.exports = CoverAmountTracker;
