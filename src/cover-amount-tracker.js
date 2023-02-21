@@ -1,8 +1,15 @@
 const fetch = require("node-fetch");
+const BN = require('bn.js');
 
 const START_ID = 'x'; // oldest claimable cover id
 
+const CURRENCIES_ADDRESSES = {
+    ETH: '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE',
+    DAI: '0x6B175474E89094C44Da98b954EedeAC495271d0F'
+};
+
 class coverAmountTracker {
+
 
 
     constructor (nexusContractLoader, web3) {
@@ -12,6 +19,7 @@ class coverAmountTracker {
     }
 
     async initialize() {
+        this.lastCoverBlock = (await this.web3.eth.getBlock('latest')).number;
         this.coverData = this.fetchAllActiveCovers();
     }
 
@@ -59,18 +67,13 @@ class coverAmountTracker {
         return { ...coverData, ...coverInfo };
     }
 
-    const fetchNewCovers = async () => {
-        // get last cover id in prod
-        // if last cover id in prod > lastCoverId
-        // for i = lastCoverId + 1; i <= lastCoverIdInProd
-        //   - fetchCover(id)
-        //   - if cover is past expiration date set processed = true
-        //   - if cover has accepted claim skip set processed = true
-        //   - if not processed: amounts[contract][currency] += amount
-        //   - add to covers object
-        //   - lastCoverId = i
-
+    async fetchNewCovers {
         const coverDetailsEvents = await this.quotationData.getPastEvents('CoverDetailsEvent', { fromBlock: lastCoverBlock });
+        for (const event of coverDetailsEvents) {
+            const newCoverData = await this.fetchCover(event.cid);
+            this.coverData.push(newCoverData);
+        }
+        this.lastCoverBlock = (await this.web3.eth.getBlock('latest')).number;
     }
 
     const fetchPayoutEvents = async lastBlock => {
@@ -86,13 +89,6 @@ class coverAmountTracker {
         // lastClaimPayoutBlockNumber = lastBlockNumber
     }
 
-    const expireCovers = () => {
-        // for loop through all Object.keys(covers)
-        // if expiration date is in the past and not processed:
-        //   - amounts[contract][currency] -= amount
-        //   - set covers[coverId].processed = true
-    }
-
     // // initialization:
     // await fetchNewCovers();
     // setInterval(300, fetchNewCovers);
@@ -102,8 +98,21 @@ class coverAmountTracker {
     //
     // setInterval(60, expireCovers);
 
-    getActiveCoverAmount(contract, currency) {
+    getActiveCoverAmount (contract, currency) {
 
+        const currencyAddress = CURRENCIES_ADDRESSES;
+        const contractCovers = this.coverData.filter(
+            c => c.contractAddress === contract && c.coverAsset === currencyAddress
+        );
+        contractCovers
+    }
+
+    computeActiveCoverAmount(covers) {
+        let activeCoverSum = new BN(0);
+
+        for (const cover of covers) {
+
+        }
     }
 
 };
