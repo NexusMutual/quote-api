@@ -74,7 +74,6 @@ class CoverAmountTracker {
             this.coverData.push(...coversInBatch);
         }
         this.lastCheckedCoverId = lastCoverId;
-        // this.coverData.push(...coverData);
     }
 
     async fetchCover (id) {
@@ -116,8 +115,14 @@ class CoverAmountTracker {
 
         console.log(`Computing based on ${covers.length} covers`);
         for (const cover of covers) {
-            if (cover.status.toNumber() === CoverStatus.ClaimAccepted && cover.requestedPayoutAmount.gtn(0)) {
-                activeCoverSum = activeCoverSum.add(cover.sumAssured).sub(cover.requestedPayoutAmount);
+            if (cover.status.toNumber() === CoverStatus.ClaimAccepted) {
+
+                if (cover.requestedPayoutAmount.gtn(0)) {
+
+                    // TODO: revise if this is actually needed or should be 0ed out
+                    activeCoverSum = activeCoverSum.add(cover.sumAssured).sub(cover.requestedPayoutAmount);
+                }
+
             } else {
                 // not claimed and not expired
                 activeCoverSum = activeCoverSum.add(cover.sumAssured);
