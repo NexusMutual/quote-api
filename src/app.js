@@ -6,6 +6,7 @@ const NexusContractLoader = require('./nexus-contract-loader');
 const routes = require('./routes');
 const log = require('./log');
 const { getEnv } = require('./utils');
+const CoverAmountTracker = require("./cover-amount-tracker");
 
 async function initApp () {
   const PROVIDER_URL = getEnv('PROVIDER_URL');
@@ -26,17 +27,17 @@ async function initApp () {
   log.info(`Connecting to node at ${new URL(PROVIDER_URL).origin}..`);
   const web3 = new Web3(PROVIDER_URL);
   await web3.eth.net.isListening();
-
-  log.info('Connecting to database..');
-  const opts = { useNewUrlParser: true, useUnifiedTopology: true };
-  await mongoose.connect(MONGO_URL, opts);
-
+  
   log.info('Initializing NexusContractLoader..');
   const nexusContractLoader = new NexusContractLoader(NETWORK, VERSION_DATA_URL, web3.eth.currentProvider);
   await nexusContractLoader.init();
 
+  log.info('Initializing CoverAmountTracker..');
+  const coverAmountTracker = new CoverAmountTracker(nexusContractLoader, web3);
+  await coverAmountTracker.initialize();
+
   const quoteEngine = new QuoteEngine(
-    nexusContractLoader, PRIVATE_KEY, web3, CAPACITY_FACTOR_END_DATE, QUOTE_SIGN_MIN_INTERVAL_SECONDS,
+    nexusContractLoader, PRIVATE_KEY, web3, CAPACITY_FACTOR_END_DATE, QUOTE_SIGN_MIN_INTERVAL_SECONDS, coverAmountTracker
   );
   const app = routes(quoteEngine);
   return app;
