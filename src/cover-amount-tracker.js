@@ -55,6 +55,7 @@ class CoverAmountTracker {
 
         if (reset) {
             // start with a clean slate
+            log.info(`Clearing existing cover data.`);
             this.lastCheckedCoverId = START_ID - 1;
             this.coverData = [];
         }
@@ -90,16 +91,21 @@ class CoverAmountTracker {
     }
 
     async fetchPayoutEvents () {
+
+        log.info(`Fetching payout events starting at block: ${this.lastVerifiedBlock}`);
         const pool = this.nexusContractLoader.instance('P1');
         const payoutEvents = await pool.getPastEvents('Payout', { fromBlock: this.lastVerifiedBlock });
 
         if (payoutEvents.length > 0) {
             // in case of a single payout event we refetch all cover data (rare event)
             // the Payout event does not have enough info to refresh only 1 particular cover
+
+            log.info(`Payout events detected: ${payoutEvents.length}`);
             await this.fetchAllCovers(true);
         }
 
         this.lastVerifiedBlock = (await this.web3.eth.getBlock('latest')).number;
+        log.info(`Last verified block is now: ${this.lastVerifiedBlock}`);
     }
 
     getActiveCoverAmount (contract, currency) {
