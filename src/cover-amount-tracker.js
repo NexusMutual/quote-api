@@ -1,7 +1,7 @@
 const BN = require('bn.js');
 const log = require('./log');
 
-const START_ID = '6820'; // oldest claimable cover id
+const START_ID = '6000'; // capture all claimable covers
 
 const CURRENCIES_ADDRESSES = {
   ETH: '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE',
