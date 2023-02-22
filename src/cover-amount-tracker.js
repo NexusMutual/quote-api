@@ -95,6 +95,7 @@ class CoverAmountTracker {
 
         if (payoutEvents.length > 0) {
             // in case of a single payout event we refetch all cover data (rare event)
+            // the Payout event does not have enough info to refresh only 1 particular cover
             await this.fetchAllCovers(true);
         }
 
