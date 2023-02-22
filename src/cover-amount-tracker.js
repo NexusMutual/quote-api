@@ -115,16 +115,10 @@ class CoverAmountTracker {
 
         console.log(`Computing based on ${covers.length} covers`);
         for (const cover of covers) {
-            if (cover.status.toNumber() === CoverStatus.ClaimAccepted) {
-
-                if (cover.requestedPayoutAmount.gtn(0)) {
-
-                    // TODO: revise if this is actually needed or should be 0ed out
-                    activeCoverSum = activeCoverSum.add(cover.sumAssured).sub(cover.requestedPayoutAmount);
-                }
-
-            } else {
-                // not claimed and not expired
+            if (cover.status.toNumber() !== CoverStatus.ClaimAccepted) {
+                // not claimed successfully and not expired
+                // partial claims are counted as full claims for the purpose of the total sum assured computation
+                // Partial claims can only be done once - cover is invalid after.
                 activeCoverSum = activeCoverSum.add(cover.sumAssured);
             }
         }
