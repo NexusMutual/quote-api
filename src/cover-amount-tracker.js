@@ -1,5 +1,5 @@
-const fetch = require("node-fetch");
 const BN = require('bn.js');
+const log = require('./log');
 
 const START_ID = '6820'; // oldest claimable cover id
 
@@ -13,6 +13,8 @@ const CoverStatus = {
 }
 
 const BATCH_SIZE = 1000;
+
+const MINUTE_IN_MILLIS = 60 * 1000;
 
 function createBatches (a, batchSize) {
     const batches = [];
@@ -40,20 +42,24 @@ class CoverAmountTracker {
     }
 
     async initialize() {
-        this.lastCoverBlock = (await this.web3.eth.getBlock('latest')).number;
+        this.lastVerifiedBlock = (await this.web3.eth.getBlock('latest')).number;
         this.lastCheckedCoverId = START_ID - 1;
-        this.lastClaimPayoutBlockNumber = 0;
-        const lastCoverBlock = 0;
         await this.fetchAllCovers();
-        //
-        // setInterval(() => this.fetchNewCovers(), 300);
-        //
-        // setInterval(() => this.fetchPayoutEvents(), 300);
+
+        // timeouts are expressed in milliseconds
+        setInterval(() => this.fetchAllCovers(), MINUTE_IN_MILLIS);
+        setInterval(() => this.fetchPayoutEvents(), MINUTE_IN_MILLIS);
     }
 
-    async fetchAllCovers () {
+    async fetchAllCovers (reset) {
 
-        console.log(`Fetching all new covers starting at cover id: ${this.lastCheckedCoverId}`);
+        if (reset) {
+            // start with a clean slate
+            this.lastCheckedCoverId = START_ID - 1;
+            this.coverData = [];
+        }
+
+        log.info(`Fetching all new covers starting at cover id: ${this.lastCheckedCoverId}`);
         const quotationData = this.nexusContractLoader.instance('QD');
         const lastCoverId = (await quotationData.getCoverLength()).toNumber() - 1;
 
@@ -62,11 +68,10 @@ class CoverAmountTracker {
             activeCoverIds.push(j);
         }
 
-        console.log(`Fetching ${activeCoverIds.length} covers.`);
+        log.info(`Fetching ${activeCoverIds.length} covers.`);
 
-        const coverData = [];
         for (const batch of createBatches(activeCoverIds, BATCH_SIZE)) {
-            console.log(`Fetching batch of covers with ids ${batch[0]} - ${batch[batch.length - 1]}`);
+            log.info(`Fetching batch of covers with ids ${batch[0]} - ${batch[batch.length - 1]}`);
             const coversInBatch = await Promise.all(batch.map(async id => {
                 const coverData = await this.fetchCover(id);
                 return coverData;
@@ -81,23 +86,26 @@ class CoverAmountTracker {
         const tokenController = this.nexusContractLoader.instance('TC');
         const coverData = await gateway.getCover(id);
         const coverInfo = await tokenController.coverInfo(id);
-        // return { id, contract, currency, amount, expiration, claimed, processed }
         return { ...coverData, ...coverInfo };
     }
 
-    // async fetchNewCovers () {
-    //     const coverDetailsEvents = await this.quotationData.getPastEvents('CoverDetailsEvent', { fromBlock: lastCoverBlock });
-    //     for (const event of coverDetailsEvents) {
-    //         const newCoverData = await this.fetchCover(event.cid);
-    //         this.coverData.push(newCoverData);
-    //     }
-    //     this.lastCoverBlock = (await this.web3.eth.getBlock('latest')).number;
-    // }
+    async fetchPayoutEvents () {
+        const pool = this.nexusContractLoader.instance('P1');
+        const payoutEvents = await pool.getPastEvents('Payout', { fromBlock: this.lastVerifiedBlock });
+
+        if (payoutEvents.length > 0) {
+            // in case of a single payout event we refetch all cover data (rare event)
+            await this.fetchAllCovers(true);
+        }
+
+        this.lastVerifiedBlock = (await this.web3.eth.getBlock('latest')).number;
+    }
 
     getActiveCoverAmount (contract, currency) {
 
         const currencyAddress = CURRENCIES_ADDRESSES[currency];
 
+        // now is expressed in seconds to be compared to cover.validUntil
         const now = new Date().getTime() / 1000;
 
         const contractCovers = this.coverData.filter(
