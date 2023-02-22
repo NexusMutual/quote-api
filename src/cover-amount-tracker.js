@@ -55,7 +55,7 @@ class CoverAmountTracker {
 
         console.log(`Fetching all new covers starting at cover id: ${this.lastCheckedCoverId}`);
         const quotationData = this.nexusContractLoader.instance('QD');
-        const lastCoverId = this.lastCheckedCoverId + 2; // (await quotationData.getCoverLength()).toNumber() - 1;
+        const lastCoverId = (await quotationData.getCoverLength()).toNumber() - 1;
 
         const activeCoverIds = [];
         for (let j = this.lastCheckedCoverId; j <= lastCoverId; j++) {
@@ -99,11 +99,8 @@ class CoverAmountTracker {
 
         const currencyAddress = CURRENCIES_ADDRESSES[currency];
 
-        const now = new Date().getTime();
-        console.log({
-            contract,
-            currencyAddress
-        })
+        const now = new Date().getTime() / 1000;
+
         const contractCovers = this.coverData.filter(
             c => {
                 return c.contractAddress === contract
@@ -116,6 +113,8 @@ class CoverAmountTracker {
 
     computeActiveCoverAmount(covers) {
         let activeCoverSum = new BN(0);
+
+        console.log(`Computing based on ${covers.length} covers`);
         for (const cover of covers) {
             if (cover.status.toNumber() === CoverStatus.ClaimAccepted && cover.requestedPayoutAmount.gtn(0)) {
                 activeCoverSum = activeCoverSum.add(cover.sumAssured).sub(cover.requestedPayoutAmount);
