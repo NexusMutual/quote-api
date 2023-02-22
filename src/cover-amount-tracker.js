@@ -128,6 +128,7 @@ class CoverAmountTracker {
     computeActiveCoverAmount(covers) {
         let activeCoverSum = new BN(0);
 
+        // TODO: remove console.log
         console.log(`Computing based on ${covers.length} covers`);
         for (const cover of covers) {
             if (cover.status.toNumber() !== CoverStatus.ClaimAccepted) {
