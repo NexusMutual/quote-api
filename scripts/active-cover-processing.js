@@ -5,6 +5,7 @@ const NexusContractLoader = require('../src/nexus-contract-loader');
 const { getEnv } = require('../src/utils');
 const BN = require('bn.js');
 const Decimal = require('decimal.js');
+const assert = require('assert');
 
 const CoverAmountTracker = require('../src/cover-amount-tracker');
 const CONTRACTS_URL = 'https://api.nexusmutual.io/coverables/contracts.json';
@@ -90,6 +91,31 @@ async function main () {
   const coverAmountTracker = new CoverAmountTracker(nexusContractLoader, web3);
 
   await coverAmountTracker.initialize();
+
+  const coverDataLengthBefore = coverAmountTracker.coverData.length;
+
+  await coverAmountTracker.fetchAllCovers();
+
+  const coverDataLengthAfter = coverAmountTracker.coverData.length;
+
+
+  // !!!! IMPORTANT: uncomment this so all covers that expired since we eliminated on-chain substraction
+  // are counted out.
+
+  // modify covers that expired after upgrade to not expire
+  // coverAmountTracker.coverData.forEach(data => {
+  //
+  //   const now = new Date().getTime() / 1000;
+  //   const deployDate = new Date("2023-02-12 20:17:23").getTime() / 1000;
+  //   const validUntil = new Date(data.validUntil.toNumber()).getTime();
+  //
+  //   if (validUntil > deployDate && validUntil < now) {
+  //     data.validUntil = data.validUntil.addn(24 * 30 * 3600); // artificially add 1 month
+  //   }
+  // });
+
+  assert(coverDataLengthAfter === coverDataLengthBefore, 'Length increased (no extra cover expected)');
+
   const active = await coverAmountTracker.getActiveCoverAmount(
     '0x1F98431c8aD98523631AE4a59f267346ea31F984',
     'ETH',
