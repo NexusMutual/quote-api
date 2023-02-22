@@ -45,27 +45,21 @@ class CoverAmountTracker {
         this.lastClaimPayoutBlockNumber = 0;
         const lastCoverBlock = 0;
         await this.fetchAllCovers();
-
-        console.log({
-            coverData: this.coverData[0]
-        });
         //
         // setInterval(() => this.fetchNewCovers(), 300);
         //
         // setInterval(() => this.fetchPayoutEvents(), 300);
-
     }
 
     async fetchAllCovers () {
 
         console.log(`Fetching all new covers starting at cover id: ${this.lastCheckedCoverId}`);
         const quotationData = this.nexusContractLoader.instance('QD');
-        const lastCoverId = (await quotationData.getCoverLength()).toNumber() - 1;
+        const lastCoverId = this.lastCheckedCoverId + 2; // (await quotationData.getCoverLength()).toNumber() - 1;
 
         const activeCoverIds = [];
         for (let j = this.lastCheckedCoverId; j <= lastCoverId; j++) {
             activeCoverIds.push(j);
-            break;
         }
 
         console.log(`Fetching ${activeCoverIds.length} covers.`);
@@ -77,13 +71,10 @@ class CoverAmountTracker {
                 const coverData = await this.fetchCover(id);
                 return coverData;
             }));
-            coverData.push(coversInBatch);
+            this.coverData.push(...coversInBatch);
         }
         this.lastCheckedCoverId = lastCoverId;
-        this.coverData.push(...coverData);
-        console.log({
-            coverData: this.coverData[0],
-        })
+        // this.coverData.push(...coverData);
     }
 
     async fetchCover (id) {
@@ -109,17 +100,22 @@ class CoverAmountTracker {
         const currencyAddress = CURRENCIES_ADDRESSES[currency];
 
         const now = new Date().getTime();
+        console.log({
+            contract,
+            currencyAddress
+        })
         const contractCovers = this.coverData.filter(
-            c => c.contractAddress === contract
+            c => {
+                return c.contractAddress === contract
                 && c.coverAsset === currencyAddress
-                && c.validUntil.toNumber() > now
+                && c.validUntil.toNumber() > now;
+            }
         );
         return this.computeActiveCoverAmount(contractCovers);
     }
 
     computeActiveCoverAmount(covers) {
         let activeCoverSum = new BN(0);
-
         for (const cover of covers) {
             if (cover.status.toNumber() === CoverStatus.ClaimAccepted && cover.requestedPayoutAmount.gtn(0)) {
                 activeCoverSum = activeCoverSum.add(cover.sumAssured).sub(cover.requestedPayoutAmount);
