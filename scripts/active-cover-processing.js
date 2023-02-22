@@ -126,7 +126,9 @@ async function main () {
         const onchainActiveCoverAmount = (await quotationData.getTotalSumAssuredSC(productKey, hex(asset)))
           .mul(new BN(1e18.toString()));
 
-        const activeCoverAmountDelta = trackerActiveCoverAmount.sub(onchainActiveCoverAmount).abs();
+
+        const activeCoverAmountDelta = onchainActiveCoverAmount.sub(trackerActiveCoverAmount);
+
 
         const counts = {
           trackerActiveCoverAmount: Decimal(trackerActiveCoverAmount.toString()).div(1e18),
@@ -135,7 +137,8 @@ async function main () {
         };
         // console.log(counts);
 
-        if (activeCoverAmountDelta.gt(new BN(1e18.toString()))) {
+
+        if (activeCoverAmountDelta.abs().gt(new BN(1e18.toString()))) {
           significantDeltas.push({ ...counts, productName: product.name, productKey, asset });
           // console.log(`Significant different for ${product.name} ${productKey}`);
         }
@@ -144,6 +147,12 @@ async function main () {
   }
   console.log(significantDeltas);
   console.log(`Found significant differences in ${significantDeltas.length} protocol/asset pairs`);
+
+  const negativeDeltas = significantDeltas.filter(delta => delta.activeCoverAmountDelta.lt(0));
+
+  console.log('Negative deltas: ');
+
+  console.log(negativeDeltas);
   return;
 
   const allActiveCovers = await fetchAllActiveCovers({
