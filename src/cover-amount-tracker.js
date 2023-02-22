@@ -65,7 +65,7 @@ class CoverAmountTracker {
     const lastCoverId = (await quotationData.getCoverLength()).toNumber() - 1;
 
     const activeCoverIds = [];
-    for (let j = this.lastCheckedCoverId; j <= lastCoverId; j++) {
+    for (let j = this.lastCheckedCoverId + 1; j <= lastCoverId; j++) {
       activeCoverIds.push(j);
     }
 
