@@ -98,7 +98,8 @@ async function main () {
 
   const coverDataLengthAfter = coverAmountTracker.coverData.length;
 
-
+  assert(coverDataLengthAfter === coverDataLengthBefore, 'Length increased (no extra cover expected)');
+  
   // !!!! IMPORTANT: uncomment this so all covers that expired since we eliminated on-chain substraction
   // are counted out.
 
@@ -113,8 +114,6 @@ async function main () {
   //     data.validUntil = data.validUntil.addn(24 * 30 * 3600); // artificially add 1 month
   //   }
   // });
-
-  assert(coverDataLengthAfter === coverDataLengthBefore, 'Length increased (no extra cover expected)');
 
   const active = await coverAmountTracker.getActiveCoverAmount(
     '0x1F98431c8aD98523631AE4a59f267346ea31F984',
