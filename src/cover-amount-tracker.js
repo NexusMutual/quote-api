@@ -53,23 +53,21 @@ class CoverAmountTracker {
 
   async fetchAllCovers (reset) {
 
-    if (reset) {
-      // start with a clean slate
-      log.info(`Clearing existing cover data.`);
-      this.lastCheckedCoverId = START_ID - 1;
-      this.coverData = [];
-    }
+    // if starting with a clean slate, start from initial id again
+    const startId = reset ? START_ID - 1 : this.lastCheckedCoverId;
 
-    log.info(`Fetching all new covers starting at cover id: ${this.lastCheckedCoverId}`);
+    log.info(`Fetching all new covers starting at cover id: ${startId}`);
     const quotationData = this.nexusContractLoader.instance('QD');
     const lastCoverId = (await quotationData.getCoverLength()).toNumber() - 1;
 
     const activeCoverIds = [];
-    for (let j = this.lastCheckedCoverId + 1; j <= lastCoverId; j++) {
+    for (let j = startId + 1; j <= lastCoverId; j++) {
       activeCoverIds.push(j);
     }
 
     log.info(`Fetching ${activeCoverIds.length} covers.`);
+
+    const newCoverData = [];
 
     for (const batch of createBatches(activeCoverIds, BATCH_SIZE)) {
       log.info(`Fetching batch of covers with ids ${batch[0]} - ${batch[batch.length - 1]}`);
@@ -77,8 +75,17 @@ class CoverAmountTracker {
         const coverData = await this.fetchCover(id);
         return coverData;
       }));
-      this.coverData.push(...coversInBatch);
+      newCoverData.push(...coversInBatch);
     }
+
+    if (reset) {
+      // start with a clean slate
+      log.info(`Overwrite existing cover data.`);
+      this.coverData = newCoverData;
+    } else {
+      this.coverData.push(...newCoverData);
+    }
+
     this.lastCheckedCoverId = lastCoverId;
   }
 
