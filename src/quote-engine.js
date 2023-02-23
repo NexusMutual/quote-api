@@ -9,6 +9,11 @@ const utils = require('./utils');
 const { hex } = require('./utils');
 const log = require('./log');
 const { getWhitelist } = require('./contract-whitelist');
+
+// import at the top
+const coverAmountTracker = require('./cover-amount-tracker.js');
+
+
 const {
   DEPENDANT_CONTRACTS,
   MCR_CAPACITY_FACTORS,
@@ -33,12 +38,22 @@ class QuoteEngine {
    * @param {Web3} web3
    * @param {string} capacityFactorEndDate
    * @param {number} quoteSignMinInterval
+   * @param {CoverAmountTracker} coverAmountTracker
    */
-  constructor (nexusContractLoader, privateKey, web3, capacityFactorEndDate, quoteSignMinInterval) {
+  constructor (
+      nexusContractLoader,
+      privateKey,
+      web3,
+      capacityFactorEndDate,
+      quoteSignMinInterval,
+      coverAmountTracker
+  ) {
     this.nexusContractLoader = nexusContractLoader;
     this.privateKey = privateKey;
     this.web3 = web3;
     this.pooledStaking = this.nexusContractLoader.instance('PS');
+
+    this.coverAmountTracker = coverAmountTracker;
 
     const format = 'MM/DD/YYYY';
     const endMoment = moment(capacityFactorEndDate, format, true);
@@ -219,7 +234,8 @@ class QuoteEngine {
     for (const contractAddress of contractAddressesLowerCased) {
       const amounts = await Promise.all(
         CURRENCIES.map(async (currency) => {
-          const sumAssured = await qd.getTotalSumAssuredSC(contractAddress, hex(currency));
+
+          const sumAssured = this.coverAmountTracker.getActiveCoverAmount(contractAddress, currency);
           return {
             sumAssured: toDecimal(sumAssured),
             contractAddress,

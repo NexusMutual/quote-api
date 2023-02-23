@@ -17,6 +17,6 @@ async function init () {
 
 init()
   .catch(error => {
-    log.error(`Unhandled app error: ${error}`);
+    log.error(`Unhandled app error: ${error.stack}`);
     process.exit(1);
   });
