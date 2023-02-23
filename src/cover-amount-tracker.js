@@ -1,4 +1,4 @@
-const BN = require('bn.js');
+const Web3 = require('web3');
 const log = require('./log');
 
 const CURRENCIES_ADDRESSES = {
@@ -10,6 +10,10 @@ const START_ID = 1;
 const CLAIM_ACCEPTED = 1;
 const BATCH_SIZE = 300;
 const MINUTE_IN_MILLIS = 60 * 1000;
+
+const toBN = Web3.utils.toBN;
+const WeiPerEther = Web3.utils.toWei(toBN(1), 'ether');
+const Zero = toBN(0);
 
 class CoverAmountTracker {
 
@@ -72,9 +76,9 @@ class CoverAmountTracker {
   async fetchCover (id) {
     const gateway = this.nexusContractLoader.instance('GW');
     const tokenController = this.nexusContractLoader.instance('TC');
-    const coverData = await gateway.getCover(id);
+    const { sumAssured, ...otherData } = await gateway.getCover(id);
     const coverInfo = await tokenController.coverInfo(id);
-    return { ...coverData, ...coverInfo };
+    return { sumAssured: sumAssured.div(WeiPerEther), ...otherData, ...coverInfo };
   }
 
   async fetchPayoutEvents () {
@@ -106,7 +110,7 @@ class CoverAmountTracker {
       .filter(c => c.validUntil.toNumber() > now)
       // .filter(c => c.validUntil.toNumber() > deployDate)
       .filter(c => c.status.toNumber() !== CLAIM_ACCEPTED)
-      .reduce((acc, c) => acc.add(c.sumAssured), new BN(0));
+      .reduce((acc, c) => acc.add(c.sumAssured), Zero);
 
     return coverAmount;
   }
