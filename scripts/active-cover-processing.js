@@ -1,84 +1,57 @@
+require('dotenv').config();
+
 const fetch = require('node-fetch');
-const log = require('../src/log');
 const Web3 = require('web3');
-const NexusContractLoader = require('../src/nexus-contract-loader');
-const { getEnv } = require('../src/utils');
 const BN = require('bn.js');
 const Decimal = require('decimal.js');
-const assert = require('assert');
 
+const log = require('../src/log');
 const CoverAmountTracker = require('../src/cover-amount-tracker');
-const CONTRACTS_URL = 'https://api.nexusmutual.io/coverables/contracts.json';
-const hex = string => '0x' + Buffer.from(string).toString('hex');
+const NexusContractLoader = require('../src/nexus-contract-loader');
+const { getEnv } = require('../src/utils');
 
-function createBatches (a, batchSize) {
+const CONTRACTS_URL = 'https://api.nexusmutual.io/coverables/contracts.json';
+const NEXUS_TRACKER_COVERS = 'https://nexustracker.io/all_covers';
+
+const hex = string => '0x' + Buffer.from(string).toString('hex');
+const toBN = Web3.utils.toBN;
+const WeiPerEther = Web3.utils.toWei(toBN(1), 'ether');
+
+function createBatches (items, batchSize) {
   const batches = [];
-  let currentBatch = [];
-  for (let i = 0; i < a.length; i++) {
-    if (currentBatch.length === batchSize) {
-      batches.push(currentBatch);
-      currentBatch = [a[i]];
-    } else {
-      currentBatch.push(a[i]);
-    }
-  }
-  if (currentBatch.length > 0) {
-    batches.push(currentBatch);
+  const copy = [...items];
+  while (copy.length > 0) {
+    batches.push(copy.splice(0, batchSize));
   }
   return batches;
 }
 
 async function fetchAllActiveCovers ({ gateway, tokenController }) {
-  const url = 'https://nexustracker.io/all_covers';
-  const covers = await fetch(url, { headers: { 'Content-Type': 'application/json' } }).then(x => x.json());
-
   const now = new Date().getTime();
-  let j = 0;
-  for (let i = 0; i < covers.length; i++) {
-    const cover = covers[i];
-
-    if (new Date(cover.end_time).getTime() > now) {
-      j++;
-    }
-
-    if (j > 4) {
-      break;
-    }
-  }
-
-  const active = covers.filter(c => new Date(c.end_time).getTime() > now);
-  console.log({
-    activeCount: active.length,
-  });
-  const activeCoverIds = active.map(c => c.cover_id);
-
   const coverData = [];
-  for (const batch of createBatches(activeCoverIds, 50)) {
+
+  const covers = await fetch(NEXUS_TRACKER_COVERS, { headers: { 'Content-Type': 'application/json' } }).then(x => x.json());
+  const active = covers.filter(c => new Date(c.end_time).getTime() > now);
+  console.log({ activeCount: active.length });
+
+  const batches = createBatches(active.map(c => c.cover_id), 50);
+
+  for (const batch of batches) {
     const coversInBatch = await Promise.all(batch.map(async id => {
       const coverData = await gateway.getCover(id);
       const coverInfo = await tokenController.coverInfo(id);
       return { ...coverData, ...coverInfo };
     }));
-    coverData.push(coversInBatch);
+    coverData.push(...coversInBatch);
   }
+
   return coverData;
 }
 
 async function main () {
-  require('dotenv').config();
-
   const PROVIDER_URL = getEnv('PROVIDER_URL');
   const VERSION_DATA_URL = getEnv('VERSION_DATA_URL');
   const NETWORK = getEnv('NETWORK', 'mainnet');
-  const CAPACITY_FACTOR_END_DATE = getEnv('CAPACITY_FACTOR_END_DATE', 'mainnet');
-  const QUOTE_SIGN_MIN_INTERVAL_SECONDS = parseInt(getEnv('QUOTE_SIGN_MIN_INTERVAL_SECONDS'));
-
-  log.info(JSON.stringify({
-    VERSION_DATA_URL,
-    NETWORK,
-    CAPACITY_FACTOR_END_DATE,
-    QUOTE_SIGN_MIN_INTERVAL_SECONDS,
-  }));
 
   log.info(`Connecting to node at ${new URL(PROVIDER_URL).origin}..`);
   const web3 = new Web3(PROVIDER_URL);
@@ -88,18 +61,10 @@ async function main () {
   const nexusContractLoader = new NexusContractLoader(NETWORK, VERSION_DATA_URL, web3.eth.currentProvider);
   await nexusContractLoader.init();
 
+  log.info('Initializing cover amount tracker..');
   const coverAmountTracker = new CoverAmountTracker(nexusContractLoader, web3);
-
   await coverAmountTracker.initialize();
 
-  const coverDataLengthBefore = coverAmountTracker.coverData.length;
-
-  await coverAmountTracker.fetchAllCovers();
-
-  const coverDataLengthAfter = coverAmountTracker.coverData.length;
-
-  assert(coverDataLengthAfter === coverDataLengthBefore, 'Length increased (no extra cover expected)');
-  
   // !!!! IMPORTANT: uncomment this so all covers that expired since we eliminated on-chain substraction
   // are counted out.
 
@@ -115,82 +80,64 @@ async function main () {
   //   }
   // });
 
-  const active = await coverAmountTracker.getActiveCoverAmount(
-    '0x1F98431c8aD98523631AE4a59f267346ea31F984',
-    'ETH',
-  );
-  console.log({
-    active: active.toString(),
-  });
-  //
-  // await coverAmountTracker.fetchPayoutEvents();
-  // return;
-
   const quotationData = nexusContractLoader.instance('QD');
 
-  const products = await fetch(CONTRACTS_URL).then(r => r.json());
+  const allProducts = await fetch(CONTRACTS_URL).then(r => r.json());
+  const products = Object.keys(allProducts)
+    .map(productId => ({ ...allProducts[productId], productId }))
+    .filter(product => !product.deprecated);
 
-  const significantDeltas = [];
+  const batches = createBatches(products, 50);
+  const deltas = [];
 
-  const batches = createBatches(Object.keys(products), 50);
+  const getActiveCoverAmount = async product => {
+    const { productId, name } = product;
 
-  for (const batch of batches) {
-    await Promise.all(batch.map(async productKey => {
+    for (const asset of ['ETH', 'DAI']) {
+      const trackerAmount = await coverAmountTracker.getActiveCoverAmount(productId, asset);
+      const onchainAmount = (await quotationData.getTotalSumAssuredSC(productId, hex(asset))).mul(WeiPerEther);
+      const delta = onchainAmount.sub(trackerAmount);
 
-      const product = products[productKey];
-      if (product.deprecated) {
+      if (delta.isZero()) {
         return;
       }
 
-      for (const asset of ['ETH', 'DAI']) {
-        const trackerActiveCoverAmount = await coverAmountTracker.getActiveCoverAmount(
-          productKey,
-          asset,
-        );
+      deltas.push({
+        name,
+        productId,
+        asset,
+        trackerAmount: new Decimal(trackerAmount.toString()).div(1e18),
+        onchainAmount: new Decimal(onchainAmount.toString()).div(1e18),
+        delta: new Decimal(delta.toString()).div(1e18),
+      });
+    }
+  };
 
-        const onchainActiveCoverAmount = (await quotationData.getTotalSumAssuredSC(productKey, hex(asset)))
-          .mul(new BN(1e18.toString()));
-
-
-        const activeCoverAmountDelta = onchainActiveCoverAmount.sub(trackerActiveCoverAmount);
-
-
-        const counts = {
-          trackerActiveCoverAmount: Decimal(trackerActiveCoverAmount.toString()).div(1e18),
-          onchainActiveCoverAmount: Decimal(onchainActiveCoverAmount.toString()).div(1e18),
-          activeCoverAmountDelta: Decimal(activeCoverAmountDelta.toString()).div(1e18),
-        };
-        // console.log(counts);
-
-
-        if (activeCoverAmountDelta.abs().gt(new BN(1e18.toString()))) {
-          significantDeltas.push({ ...counts, productName: product.name, productKey, asset });
-          // console.log(`Significant different for ${product.name} ${productKey}`);
-        }
-      }
-    }));
+  for (const batch of batches) {
+    await Promise.all(batch.map(async product => getActiveCoverAmount(product)));
   }
-  console.log(significantDeltas);
-  console.log(`Found significant differences in ${significantDeltas.length} protocol/asset pairs`);
 
-  const negativeDeltas = significantDeltas.filter(delta => delta.activeCoverAmountDelta.lt(0));
+  const negativeDeltas = deltas.filter(delta => delta.delta.lt(0));
+  const positiveDeltas = deltas.filter(delta => delta.delta.gt(0));
 
-  console.log('Negative deltas: ');
+  const formatDelta = delta => [
+    `${delta.name}`,
+    `    onchain     : ${delta.onchainAmount.toFixed(0)} ${delta.asset}`,
+    `    tracker     : ${delta.trackerAmount.toFixed(0)} ${delta.asset}`,
+    `    tracker diff: ${delta.trackerAmount.gt(delta.onchainAmount) ? '+' : '-'}${delta.delta.toFixed(0)} ${delta.asset}`,
+    '',
+  ].join('\n');
 
-  console.log(negativeDeltas);
-  return;
+  console.log('Negative deltas:\n', negativeDeltas.map(formatDelta).join('\n'));
+  console.log('Positive deltas:\n', positiveDeltas.map(formatDelta).join('\n'));
 
-  const allActiveCovers = await fetchAllActiveCovers({
-    gateway: nexusContractLoader.instance('GW'),
-    tokenController: nexusContractLoader.instance('TC'),
-  });
-
-  console.log(allActiveCovers);
+  console.log(`Found negative differences in ${negativeDeltas.length} protocol/asset pairs`);
+  console.log(`Found positive differences in ${positiveDeltas.length} protocol/asset pairs`);
 }
 
 if (require.main === module) {
   main()
-    .then(() => console.log('Done!'))
+    .then(() => process.exit(1))
     .catch(e => {
       console.log('Unhandled error encountered: ', e.stack);
       process.exit(1);
